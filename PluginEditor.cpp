@@ -25,17 +25,29 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
 
 DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
 {
+  
 }
 
 //==============================================================================
 void DrumSamplerAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+    g.setColour(juce::Colours::transparentBlack);
 
-    g.setColour (juce::Colours::white);
-    g.setFont (15.0f);
-    g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
+    if (audioProcessor.getNumSamplerSounds() > 0)
+    {
+        g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
+        g.setColour(juce::Colours::red);
+        g.setFont(15.0f);
+        g.drawFittedText("Sample loaded!", getLocalBounds(), juce::Justification::centred, 1);
+    }
+    else
+    {
+        g.drawFittedText("Load Sample!", getLocalBounds(), juce::Justification::centred, 1);
+    }
+
+    
 }
 
 void DrumSamplerAudioProcessorEditor::resized()
@@ -51,7 +63,7 @@ bool DrumSamplerAudioProcessorEditor::isInterestedInFileDrag(const juce::StringA
     {
         if (file.contains(".wav") || file.contains(".mp3")) return true;
     }
-    return false
+    return false;
 
 }
 void DrumSamplerAudioProcessorEditor::filesDropped(const juce::StringArray& files, int x, int y)
@@ -60,10 +72,12 @@ void DrumSamplerAudioProcessorEditor::filesDropped(const juce::StringArray& file
     {
         if (isInterestedInFileDrag(files))
         {
-            return true
+            //load file
+            audioProcessor.loadFile(file);
 
         }
       
     }
+    repaint();
        
  }

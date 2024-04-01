@@ -22,12 +22,16 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
                        )
 #endif
 {
-    for (int i = 0; i < numVoices; i+)
-        mSampler.addVoice( new juce::SamplerVoice() );
+    mFormatManager.registerBasicFormats();
+
+    for (int i = 0; i < numVoices; i++) {
+        mSampler.addVoice(new juce::SamplerVoice());
+    }
 }
 
 DrumSamplerAudioProcessor::~DrumSamplerAudioProcessor()
 {
+    mFormatReader = nullptr;
 }
 
 //==============================================================================
@@ -95,6 +99,7 @@ void DrumSamplerAudioProcessor::changeProgramName (int index, const juce::String
 //==============================================================================
 void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    mSampler.setCurrentPlaybackSampleRate(sampleRate);
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
 }
@@ -152,12 +157,14 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
-
-        // ..do something to the data...
-    }
+    //for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    //{
+    //    auto* channelData = buffer.getWritePointer (channel);
+    //   
+    //    mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
+    //         ..do something to the data...
+    //}
+    mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 }
 
 //==============================================================================
@@ -187,8 +194,6 @@ void DrumSamplerAudioProcessor::setStateInformation (const void* data, int sizeI
 
 
 
-
-
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
@@ -197,6 +202,13 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 }
 
 void DrumSamplerAudioProcessor::loadFile(const juce::String& path)
-{
+{   
+    mSampler.clearSounds();
+
     auto file = juce::File(path);
+    mFormatReader = mFormatManager.createReaderFor(file);
+    juce::BigInteger range;
+    range.setRange(0, 128, true);
+    mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader, range, 60, 0.1, 0.1, 10.0));
+
 }

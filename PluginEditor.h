@@ -25,8 +25,8 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     juce::TextButton SButton;
-    bool FileDragAndDropTarget::isInterestedInFileDrag (const juce::StringArray& files);
-    void FileDragAndDropTarget::filesDropped (const StringArray& files, int x, int y);
+    bool FileDragAndDropTarget::isInterestedInFileDrag (const juce::StringArray &files);
+    void FileDragAndDropTarget::filesDropped (const juce::StringArray &files, int x, int y);
 
 
 private:
