@@ -19,7 +19,7 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     SButton.setButtonText("Sample");
   
     
-    addAndMakeVisible(&SButton);
+    //addAndMakeVisible(&SButton);
 
 }
 
@@ -32,21 +32,21 @@ DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
 void DrumSamplerAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
-    g.setColour(juce::Colours::transparentBlack);
+    g.fillAll(juce::Colours::black);
+
+    g.setColour(juce::Colours::red);
+    g.setFont(15.0f);
 
     if (audioProcessor.getNumSamplerSounds() > 0)
     {
-        g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
-        g.setColour(juce::Colours::red);
-        g.setFont(15.0f);
-        g.drawFittedText("Sample loaded!", getLocalBounds(), juce::Justification::centred, 1);
+        g.fillAll(juce::Colours::whitesmoke);
+
+        g.drawText("Sound Loaded", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
     }
     else
     {
-        g.drawFittedText("Load Sample!", getLocalBounds(), juce::Justification::centred, 1);
+        g.drawText("Load", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
     }
-
     
 }
 

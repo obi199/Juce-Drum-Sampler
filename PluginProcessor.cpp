@@ -162,7 +162,6 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     //    auto* channelData = buffer.getWritePointer (channel);
     //   
     //    mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
-    //         ..do something to the data...
     //}
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 }
