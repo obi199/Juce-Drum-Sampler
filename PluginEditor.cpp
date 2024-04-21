@@ -11,15 +11,18 @@
 
 //==============================================================================
 DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+    : AudioProcessorEditor (&p), audioProcessor(p)
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (400, 300);
     SButton.setButtonText("Sample");
-  
+    SButton.onClick = [this] {SButtonClicked(&SButton); };
+
+    addAndMakeVisible(&SButton);
+    SButton.setEnabled(true);
     
-    //addAndMakeVisible(&SButton);
+   
 
 }
 
@@ -54,7 +57,8 @@ void DrumSamplerAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    SButton.setBounds(50, 50, 150, 150);
+    SButton.setBounds(getLocalBounds().reduced(30));
+    //SButton.setBounds(50, 50, 150, 150);
 }
 
 bool DrumSamplerAudioProcessorEditor::isInterestedInFileDrag(const juce::StringArray& files)
@@ -70,14 +74,34 @@ void DrumSamplerAudioProcessorEditor::filesDropped(const juce::StringArray& file
 {
     for (auto file : files)
     {
-        if (isInterestedInFileDrag(files))
-        {
-            //load file
-            audioProcessor.loadFile(file);
+        if (isInterestedInFileDrag(files)){
 
+            audioFile = file;
+            audioProcessor.loadFile(file);
         }
       
     }
     repaint();
        
  }
+
+
+
+bool DrumSamplerAudioProcessorEditor::isMouseOver(juce::TextButton& button){
+    if (button.isMouseOverOrDragging() == true) {
+        return true;
+        }
+    return false;
+    }
+
+
+
+void DrumSamplerAudioProcessorEditor::SButtonClicked(juce::Button* button)
+{
+    if (button == &SButton)
+    {
+        audioProcessor.playFile();
+    }
+
+}
+

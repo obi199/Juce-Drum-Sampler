@@ -15,7 +15,7 @@
 /**
 */
 class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor,
-    public juce::FileDragAndDropTarget
+    public juce::FileDragAndDropTarget, public juce::AudioTransportSource
 {
 public:
     DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor&);
@@ -24,16 +24,31 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
-    juce::TextButton SButton;
+    
     bool FileDragAndDropTarget::isInterestedInFileDrag (const juce::StringArray &files);
-    void FileDragAndDropTarget::filesDropped (const juce::StringArray &files, int x, int y);
+    void FileDragAndDropTarget::filesDropped(const juce::StringArray& files, int x, int y);
+    bool isMouseOver(juce::TextButton& button);
+    void SButtonClicked(juce::Button* button);
+    juce::File audioFile;
+    juce::AudioTransportSource transportSource;
+    enum TransportState
+    {
+        Stop,
+        Play,
+    };
 
+    TransportState state;
 
 private:
 
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     DrumSamplerAudioProcessor& audioProcessor;
+    juce::TextButton SButton;
+
+
+   
+    
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };

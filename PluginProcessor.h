@@ -52,18 +52,23 @@ public:
 
     //==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
+
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     void loadFile (const juce::String& path);
+    void loadFile(const juce::File& file);
     int getNumSamplerSounds() { return mSampler.getNumSounds(); }
+    juce::AudioFormatManager mFormatManager;
+    juce::AudioFormatReader* mFormatReader{ nullptr };
+    juce::AudioTransportSource transportSource;
+    void playFile();
+    //void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) /*override*/;
      
 private:
     //==============================================================================
     juce::Synthesiser mSampler;
     const int numVoices{ 3 };
-    juce::AudioFormatManager mFormatManager;
-    juce::AudioFormatReader* mFormatReader{ nullptr };
-
+  
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
 };
