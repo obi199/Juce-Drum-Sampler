@@ -56,13 +56,11 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     void loadFile (const juce::String& path);
-    void loadFile(const juce::File& file);
+    //void loadFile(const juce::File& file);
     int getNumSamplerSounds() { return mSampler.getNumSounds(); }
     juce::AudioFormatManager mFormatManager;
     juce::AudioFormatReader* mFormatReader{ nullptr };
-    juce::AudioTransportSource transportSource;
-    void playFile();
-    //void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) /*override*/;
+    void playFile(int noteNumber);
      
 private:
     //==============================================================================

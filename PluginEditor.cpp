@@ -16,13 +16,13 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (400, 300);
-    SButton.setButtonText("Sample");
-    SButton.onClick = [this] {SButtonClicked(&SButton); };
 
-    addAndMakeVisible(&SButton);
-    SButton.setEnabled(true);
-    
-   
+    myButton.setButtonText("myButton");
+    addAndMakeVisible(&myButton);
+    myButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
+    myButton.onClick = [this] {ButtonClicked(&myButton, 60); };
+
+
 
 }
 
@@ -35,21 +35,23 @@ DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
 void DrumSamplerAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll(juce::Colours::black);
+    //g.fillAll(juce::Colours::black);
 
     g.setColour(juce::Colours::red);
     g.setFont(15.0f);
+    //g.drawEllipse(50, 10, 60, 60, 3);
 
-    if (audioProcessor.getNumSamplerSounds() > 0)
-    {
-        g.fillAll(juce::Colours::whitesmoke);
 
-        g.drawText("Sound Loaded", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
-    }
-    else
-    {
-        g.drawText("Load", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
-    }
+    //if (audioProcessor.getNumSamplerSounds() > 0)
+    //{
+    //    g.fillAll(juce::Colours::whitesmoke);
+
+    //    g.drawText("Sound Loaded", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
+    //}
+    //else
+    //{
+    //    g.drawText("Load", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
+    //}
     
 }
 
@@ -57,11 +59,33 @@ void DrumSamplerAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    SButton.setBounds(getLocalBounds().reduced(30));
-    //SButton.setBounds(50, 50, 150, 150);
+   
+    myButton.setBounds(40, 100, 70, 70);
+    
 }
 
-bool DrumSamplerAudioProcessorEditor::isInterestedInFileDrag(const juce::StringArray& files)
+
+
+
+void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int noteNumber)
+{
+    if (button == &myButton)
+    {   
+        audioProcessor.playFile(noteNumber);
+    }
+
+}
+
+
+
+DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p): Processor(p) {
+
+ }
+
+DragAndDropButton::~DragAndDropButton(){}
+
+
+bool DragAndDropButton::isInterestedInFileDrag(const juce::StringArray& files)
 {
     for (auto file : files)
     {
@@ -70,38 +94,19 @@ bool DrumSamplerAudioProcessorEditor::isInterestedInFileDrag(const juce::StringA
     return false;
 
 }
-void DrumSamplerAudioProcessorEditor::filesDropped(const juce::StringArray& files, int x, int y)
+void DragAndDropButton::filesDropped(const juce::StringArray& files, int x, int y)
 {
     for (auto file : files)
     {
-        if (isInterestedInFileDrag(files)){
 
-            audioFile = file;
-            audioProcessor.loadFile(file);
+        if (isInterestedInFileDrag(files)) {
+            DBG("File dropped: " << file);
+
+            Processor.loadFile(file);
+
         }
-      
+
     }
-    repaint();
-       
- }
-
-
-
-bool DrumSamplerAudioProcessorEditor::isMouseOver(juce::TextButton& button){
-    if (button.isMouseOverOrDragging() == true) {
-        return true;
-        }
-    return false;
-    }
-
-
-
-void DrumSamplerAudioProcessorEditor::SButtonClicked(juce::Button* button)
-{
-    if (button == &SButton)
-    {
-        audioProcessor.playFile();
-    }
+    //repaint();
 
 }
-

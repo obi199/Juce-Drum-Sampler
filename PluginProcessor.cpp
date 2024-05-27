@@ -100,7 +100,7 @@ void DrumSamplerAudioProcessor::changeProgramName (int index, const juce::String
 void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mSampler.setCurrentPlaybackSampleRate(sampleRate);
-    transportSource.prepareToPlay(samplesPerBlock, sampleRate);
+    //transportSource.prepareToPlay(samplesPerBlock, sampleRate);
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
 }
@@ -109,7 +109,7 @@ void DrumSamplerAudioProcessor::releaseResources()
 {
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
-    transportSource.releaseResources();
+    //transportSource.releaseResources();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -192,25 +192,30 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path)
     auto file = juce::File(path);
     mFormatReader = mFormatManager.createReaderFor(file);
     juce::BigInteger range;
-    range.setRange(0, 128, true);
-    mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader, range, 60, 0.1, 0.1, 10.0));
+    range.setRange(60, 1, true);
+    //range = 60;
+    mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader,range, 60, 0.1, 0.1, 10.0));
 
 }
+//
+//void DrumSamplerAudioProcessor::loadFile(const juce::File& file)
+//{
+//    mSampler.clearSounds();
+//
+//    mFormatReader = mFormatManager.createReaderFor(file);
+//    juce::BigInteger range;
+//    //range.setRange(0, 128, true);
+//    range.setRange(60, 1, true);
+//
+//    mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader, range, 60, 0.01, 0.1, 10.0));
+//
+//}
 
-void DrumSamplerAudioProcessor::loadFile(const juce::File& file)
+void DrumSamplerAudioProcessor::playFile(int noteNumber)
+
 {
-    mSampler.clearSounds();
-
-    mFormatReader = mFormatManager.createReaderFor(file);
-    juce::BigInteger range;
-    range.setRange(0, 128, true);
-    mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader, range, 60, 0.1, 0.1, 10.0));
-
-}
-
-void DrumSamplerAudioProcessor::playFile()
-{
-     mSampler.noteOn(1, 60, 100);
+    
+     mSampler.noteOn(1, noteNumber, (juce::uint8)100);
 
 }
 
