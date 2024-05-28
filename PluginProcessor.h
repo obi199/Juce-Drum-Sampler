@@ -59,13 +59,21 @@ public:
     //void loadFile(const juce::File& file);
     int getNumSamplerSounds() { return mSampler.getNumSounds(); }
     juce::AudioFormatManager mFormatManager;
+   
+    juce::AudioThumbnailCache thumbnailCache;                  
+    juce::AudioThumbnail thumbnail;
     juce::AudioFormatReader* mFormatReader{ nullptr };
     void playFile(int noteNumber);
+  
+
      
 private:
     //==============================================================================
     juce::Synthesiser mSampler;
     const int numVoices{ 3 };
+    juce::AudioBuffer<float> mWaveForm;
+
+   
   
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)

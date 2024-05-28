@@ -19,9 +19,11 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),   thumbnailCache(5),                         
+                            thumbnail(512, mFormatManager, thumbnailCache) 
 #endif
 {
+ 
     mFormatManager.registerBasicFormats();
 
     for (int i = 0; i < numVoices; i++) {
@@ -100,7 +102,6 @@ void DrumSamplerAudioProcessor::changeProgramName (int index, const juce::String
 void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mSampler.setCurrentPlaybackSampleRate(sampleRate);
-    //transportSource.prepareToPlay(samplesPerBlock, sampleRate);
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
 }
@@ -149,6 +150,7 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
    
+   
 }
 
 //==============================================================================
@@ -190,32 +192,30 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path)
     mSampler.clearSounds();
 
     auto file = juce::File(path);
+
     mFormatReader = mFormatManager.createReaderFor(file);
-    juce::BigInteger range;
-    range.setRange(60, 1, true);
-    //range = 60;
-    mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader,range, 60, 0.1, 0.1, 10.0));
+    
+    //auto sampleLength = static_cast<int>(mFormatReader->lengthInSamples);
+    //mWaveForm.setSize(1, sampleLength);
+    //mFormatReader->read(&mWaveForm,0, sampleLength, 0, true, false );
+    //auto buffer = mWaveForm.getReadPointer(0);
+    //for (int sample = 0; sample < mWaveForm.getNumSamples(); ++sample)
+    //{
+    //    DBG(buffer[sample]);
+    //}
+    if (mFormatReader != nullptr) {
+        thumbnail.setSource(new juce::FileInputSource(file));
+        juce::BigInteger range;
+        range.setRange(60, 1, true);
+        mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader, range, 60, 0.01, 0.1, 10.0));
+    }
+
+   
 
 }
-//
-//void DrumSamplerAudioProcessor::loadFile(const juce::File& file)
-//{
-//    mSampler.clearSounds();
-//
-//    mFormatReader = mFormatManager.createReaderFor(file);
-//    juce::BigInteger range;
-//    //range.setRange(0, 128, true);
-//    range.setRange(60, 1, true);
-//
-//    mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader, range, 60, 0.01, 0.1, 10.0));
-//
-//}
 
 void DrumSamplerAudioProcessor::playFile(int noteNumber)
-
 {
-    
-     mSampler.noteOn(1, noteNumber, (juce::uint8)100);
-
+     mSampler.noteOn(1, noteNumber, (juce::uint8)7);
 }
 
