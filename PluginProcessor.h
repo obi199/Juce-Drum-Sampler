@@ -64,6 +64,8 @@ public:
     juce::AudioThumbnail thumbnail;
     juce::AudioFormatReader* mFormatReader{ nullptr };
     void playFile(int noteNumber);
+    float gain{ 0.5 };
+    void getValue();
   
 
      

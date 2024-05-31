@@ -147,10 +147,21 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-
+    getValue();
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
-   
-   
+   /* for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    {
+        auto* channelData = buffer.getWritePointer(channel);
+
+        for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
+        {
+            channelData[sample] = channelData[sample] * juce::Decibels::decibelsToGain(gain);
+        }
+        
+    }*/
+    buffer.applyGain(juce::Decibels::decibelsToGain(gain));
+
+    
 }
 
 //==============================================================================
@@ -219,3 +230,8 @@ void DrumSamplerAudioProcessor::playFile(int noteNumber)
      mSampler.noteOn(1, noteNumber, (juce::uint8)7);
 }
 
+void DrumSamplerAudioProcessor::getValue() {
+    DBG("Volume: " << gain);
+}
+
+    

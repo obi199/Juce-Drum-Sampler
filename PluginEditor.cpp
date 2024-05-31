@@ -21,6 +21,18 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     myButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
     myButton.onClick = [this] {ButtonClicked(&myButton, 60); };
     addAndMakeVisible(&waveForm);
+    addAndMakeVisible(&VolSlider);
+    VolSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    VolSlider.setRange(-50.0f, 0.0f, 0.01f);
+    VolSlider.setValue(-12.0f);
+    //VolSlider.toFront(true);
+    //GainSlider.addListener(this);
+    VolSlider.onValueChange = [this] { sliderValueChanged(&VolSlider); };
+    addAndMakeVisible(&AttackSlider);
+    AttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    AttackSlider.setRange(-50.0f, 0.0f, 0.01f);
+    AttackSlider.setValue(-49.0f);
+
 }
 
 DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
@@ -33,9 +45,9 @@ void DrumSamplerAudioProcessorEditor::paint (juce::Graphics& g)
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     //g.fillAll(juce::Colours::black);
 
-    g.setColour(juce::Colours::red);
-    g.setFont(15.0f);
-    
+    //g.setColour(juce::Colours::red);
+    //g.setFont(15.0f);
+    //
 }
 
 void DrumSamplerAudioProcessorEditor::resized()
@@ -44,8 +56,10 @@ void DrumSamplerAudioProcessorEditor::resized()
     // subcomponents in your editor..
     myButton.setBounds(10, 300, 70, 70);
     waveForm.setBounds(100, 10, 250, 200);
+    VolSlider.setBounds(350, 250, 150, 70);
+    AttackSlider.setBounds(350, 100, 150, 70);
+    //GainSlider.setBounds(getWidth() / 2 + 150, getHeight() / 2 - 50, 80, 150);
 }
-
 
 void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int noteNumber)
 {
@@ -55,14 +69,17 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
     }
 }
 
+void DrumSamplerAudioProcessorEditor::sliderValueChanged(juce::Slider* slider) {
+    if (slider = &VolSlider) audioProcessor.gain = VolSlider.getValue();
+    //DBG(GainSlider.getValue());
+
+}
 
 //this is your drag and drop button//
 DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p): Processor(p) {
-
  }
 
 DragAndDropButton::~DragAndDropButton(){}
-
 
 bool DragAndDropButton::isInterestedInFileDrag(const juce::StringArray& files)
 {
@@ -71,8 +88,8 @@ bool DragAndDropButton::isInterestedInFileDrag(const juce::StringArray& files)
         if (file.contains(".wav") || file.contains(".mp3")) return true;
     }
     return false;
-
 }
+
 void DragAndDropButton::filesDropped(const juce::StringArray& files, int x, int y)
 {
     for (auto file : files)
@@ -81,21 +98,14 @@ void DragAndDropButton::filesDropped(const juce::StringArray& files, int x, int 
 
             DBG("File dropped: " << file);
             Processor.loadFile(file);
-
         }
     }
     repaint();
-
 }
 
 void DragAndDropButton::paint(juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-   
-   /* g.setColour(juce::Colours::whitesmoke);
-    g.setFont(15.0f);*/
-    //g.drawEllipse(50, 10, 60, 60, 3);
-    //g.drawRoundedRectangle(100f, 50f, 50, 50, 1, 1);
+  
     g.fillAll(juce::Colours::grey);
 
     if (Processor.getNumSamplerSounds() > 0)
@@ -161,3 +171,12 @@ void waveFormEditor::thumbnailChanged()
 {
     repaint();
 }
+
+
+sliderController::sliderController(juce::String name) {
+    addAndMakeVisible(&durationLabel);
+    durationLabel.setText(name, juce::dontSendNotification);
+    durationLabel.attachToComponent(this, true);
+}
+
+

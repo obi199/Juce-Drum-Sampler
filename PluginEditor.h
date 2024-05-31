@@ -15,7 +15,19 @@
 /**Drum Sampler Plugin
 */
 
-//this is your drag and drop button//
+class sliderController : public juce::Slider
+{
+public:
+    sliderController::sliderController(juce::String);
+
+    //void paint(juce::Graphics&) override;
+   
+private:
+    juce::Label durationLabel;
+};
+
+
+
 class waveFormEditor : public juce::Component, private juce::ChangeListener {
 public:
     waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor&);
@@ -56,7 +68,7 @@ private:
 //main component//
 
 class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor
-//    public juce::DragAndDropContainer //, juce::FileDragAndDropTarget
+    //, public juce::Slider::Listener
 {
 public:
     DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor&);
@@ -65,21 +77,19 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
-    
-    //bool FileDragAndDropTarget::isInterestedInFileDrag (const juce::StringArray &files);
-    //void FileDragAndDropTarget::filesDropped(const juce::StringArray& files, int x, int y);
+    void sliderValueChanged(juce::Slider* );
     void ButtonClicked(juce::Button* button, int noteNumber);    
     juce::File audioFile;
    
-   
-
 private:
 
-    // This reference is provided as a quick way for your editor to
-    // access the processor object that created it.
     DrumSamplerAudioProcessor& audioProcessor;
     DragAndDropButton myButton { audioProcessor };
     waveFormEditor waveForm{ audioProcessor };
+    sliderController VolSlider{ "Volume" };
+    sliderController AttackSlider{ "Attack" };
+    //juce::Slider volSlider;
+   
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };
