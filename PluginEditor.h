@@ -86,9 +86,11 @@ private:
     DrumSamplerAudioProcessor& audioProcessor;
     DragAndDropButton myButton { audioProcessor };
     waveFormEditor waveForm{ audioProcessor };
-    sliderController VolSlider{ "Volume" };
-    sliderController AttackSlider{ "Attack" };
-    //juce::Slider volSlider;
+    sliderController VolSlider { "Volume" };
+    sliderController AttackSlider { "Attack" };
+    sliderController DecaySlider { "Decay" };
+    sliderController SustainSlider{ "Sustain" };
+    sliderController ReleaseSlider{ "Release" };;
    
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)

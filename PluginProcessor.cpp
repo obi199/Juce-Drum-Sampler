@@ -102,8 +102,8 @@ void DrumSamplerAudioProcessor::changeProgramName (int index, const juce::String
 void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mSampler.setCurrentPlaybackSampleRate(sampleRate);
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    updateADSR();
+    
 }
 
 void DrumSamplerAudioProcessor::releaseResources()
@@ -147,7 +147,7 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-    getValue();
+    //getValue();
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
    /* for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
@@ -230,8 +230,22 @@ void DrumSamplerAudioProcessor::playFile(int noteNumber)
      mSampler.noteOn(1, noteNumber, (juce::uint8)7);
 }
 
-void DrumSamplerAudioProcessor::getValue() {
+void DrumSamplerAudioProcessor::getValue() 
+{
     DBG("Volume: " << gain);
 }
+
+void DrumSamplerAudioProcessor::updateADSR() {
+
+    for (int i = 0; i < mSampler.getNumSounds(); ++i)
+    {
+        if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
+        {
+            sound->setEnvelopeParameters(mADSRparams);
+        }
+    }
+
+}
+
 
     

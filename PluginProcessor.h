@@ -65,7 +65,11 @@ public:
     juce::AudioFormatReader* mFormatReader{ nullptr };
     void playFile(int noteNumber);
     float gain{ 0.5 };
+ /*   float attack{ 0.5 };
+    float decay{ 0.5 };*/
     void getValue();
+    void updateADSR();
+    juce::ADSR::Parameters& getADSRparams() { return mADSRparams; }
   
 
      
@@ -74,6 +78,7 @@ private:
     juce::Synthesiser mSampler;
     const int numVoices{ 3 };
     juce::AudioBuffer<float> mWaveForm;
+    juce::ADSR::Parameters mADSRparams;
 
    
   

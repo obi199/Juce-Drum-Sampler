@@ -14,13 +14,14 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     : AudioProcessorEditor (&p), audioProcessor(p){ 
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
-    setSize (500, 400);
+    setSize (600, 500);
 
     myButton.setButtonText("myButton");
     addAndMakeVisible(&myButton);
     myButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
     myButton.onClick = [this] {ButtonClicked(&myButton, 60); };
     addAndMakeVisible(&waveForm);
+
     addAndMakeVisible(&VolSlider);
     VolSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     VolSlider.setRange(-50.0f, 0.0f, 0.01f);
@@ -28,11 +29,30 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     //VolSlider.toFront(true);
     //GainSlider.addListener(this);
     VolSlider.onValueChange = [this] { sliderValueChanged(&VolSlider); };
+
     addAndMakeVisible(&AttackSlider);
     AttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    AttackSlider.setRange(-50.0f, 0.0f, 0.01f);
-    AttackSlider.setValue(-49.0f);
+    AttackSlider.setRange(0.0f, 1.0f, 0.01f);
+    AttackSlider.setValue(0.0f);
+    AttackSlider.onValueChange = [this] { sliderValueChanged(&AttackSlider); };
 
+    addAndMakeVisible(&DecaySlider);
+    DecaySlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    DecaySlider.setRange(0.0f, 1.0f, 0.01f);
+    DecaySlider.setValue(2.0f);
+    DecaySlider.onValueChange = [this] { sliderValueChanged(&DecaySlider); };
+
+    addAndMakeVisible(&ReleaseSlider);
+    ReleaseSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    ReleaseSlider.setRange(0.0f, 1.0f, 0.01f);
+    ReleaseSlider.setValue(1.0f);
+    ReleaseSlider.onValueChange = [this] { sliderValueChanged(&ReleaseSlider); };
+
+    addAndMakeVisible(&SustainSlider);
+    SustainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    SustainSlider.setRange(0.0f, 1.0f, 0.01f);
+    SustainSlider.setValue(1.0f);
+    SustainSlider.onValueChange = [this] { sliderValueChanged(&SustainSlider); };
 }
 
 DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
@@ -56,8 +76,11 @@ void DrumSamplerAudioProcessorEditor::resized()
     // subcomponents in your editor..
     myButton.setBounds(10, 300, 70, 70);
     waveForm.setBounds(100, 10, 250, 200);
-    VolSlider.setBounds(350, 250, 150, 70);
-    AttackSlider.setBounds(350, 100, 150, 70);
+    VolSlider.setBounds(450, 350, 150, 70);
+    AttackSlider.setBounds(450, 250, 150, 70);
+    DecaySlider.setBounds(450, 150, 150, 70);
+    SustainSlider.setBounds(450, 80, 150, 70);
+    ReleaseSlider.setBounds(450, 10, 150, 70);
     //GainSlider.setBounds(getWidth() / 2 + 150, getHeight() / 2 - 50, 80, 150);
 }
 
@@ -70,8 +93,29 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
 }
 
 void DrumSamplerAudioProcessorEditor::sliderValueChanged(juce::Slider* slider) {
-    if (slider = &VolSlider) audioProcessor.gain = VolSlider.getValue();
-    //DBG(GainSlider.getValue());
+    if (slider == &VolSlider)
+    {
+        audioProcessor.gain = VolSlider.getValue();
+        DBG(VolSlider.getValue());
+    }
+    else if (slider == &AttackSlider) 
+    {
+        audioProcessor.getADSRparams().attack = AttackSlider.getValue();
+    }
+    else if (slider == &DecaySlider) 
+    {
+        audioProcessor.getADSRparams().decay = DecaySlider.getValue();
+    }
+    else if (slider == &SustainSlider) 
+    {
+        audioProcessor.getADSRparams().sustain = SustainSlider.getValue();
+    }
+    else if (slider == &ReleaseSlider) 
+    {
+        audioProcessor.getADSRparams().release = ReleaseSlider.getValue();
+    }
+
+    audioProcessor.updateADSR();
 
 }
 
