@@ -15,16 +15,48 @@
 /**Drum Sampler Plugin
 */
 
+
+
 class sliderController : public juce::Slider
 {
 public:
     sliderController::sliderController(juce::String);
+    void attachLabel(Component*, bool);
 
     //void paint(juce::Graphics&) override;
-   
+
 private:
-    juce::Label durationLabel;
+    juce::Label nameLabel;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(sliderController)
 };
+
+
+
+
+class controlSlidersBlock : public juce::Component
+{
+public:
+    controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor&);
+    
+    void sliderValueChanged(juce::Slider*);
+    void resized() override;
+    void paint(juce::Graphics&) override;
+
+private:
+
+    sliderController VolSlider{ "Volume" };
+    sliderController AttackSlider{ "Attack" };
+    sliderController DecaySlider{ "Decay" };
+    sliderController SustainSlider{ "Sustain" };
+    sliderController ReleaseSlider{ "Release" };
+
+    DrumSamplerAudioProcessor& audioProcessor;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(controlSlidersBlock)
+};
+
+
+
+
 
 
 
@@ -68,7 +100,6 @@ private:
 //main component//
 
 class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor
-    //, public juce::Slider::Listener
 {
 public:
     DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor&);
@@ -77,7 +108,7 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
-    void sliderValueChanged(juce::Slider* );
+
     void ButtonClicked(juce::Button* button, int noteNumber);    
     juce::File audioFile;
    
@@ -86,12 +117,7 @@ private:
     DrumSamplerAudioProcessor& audioProcessor;
     DragAndDropButton myButton { audioProcessor };
     waveFormEditor waveForm{ audioProcessor };
-    sliderController VolSlider { "Volume" };
-    sliderController AttackSlider { "Attack" };
-    sliderController DecaySlider { "Decay" };
-    sliderController SustainSlider{ "Sustain" };
-    sliderController ReleaseSlider{ "Release" };;
-   
+    controlSlidersBlock CBlock{ audioProcessor };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };
