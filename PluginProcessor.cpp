@@ -20,11 +20,13 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
                        ),   thumbnailCache(5),                         
-                            thumbnail(512, mFormatManager, thumbnailCache) 
+                            thumbnail(512, mFormatManager, thumbnailCache), 
+    mAPVSTATE(*this, nullptr, "PARAMETERS", createParameters())
 #endif
 {
- 
+    
     mFormatManager.registerBasicFormats();
+    mAPVSTATE.state.addListener(this);
 
     for (int i = 0; i < numVoices; i++) {
         mSampler.addVoice(new juce::SamplerVoice());
@@ -147,7 +149,9 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-    //getValue();
+
+    if (mShouldUpdate) updateADSR();
+    
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
    /* for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
@@ -159,7 +163,8 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         }
         
     }*/
-    buffer.applyGain(juce::Decibels::decibelsToGain(gain));
+
+    //buffer.applyGain(juce::Decibels::decibelsToGain(gain));
 
     
 }
@@ -221,7 +226,7 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path)
         mSampler.addSound(new juce::SamplerSound("Sample", *mFormatReader, range, 60, 0.01, 0.1, 10.0));
     }
 
-   
+    updateADSR();
 
 }
 
@@ -237,6 +242,12 @@ void DrumSamplerAudioProcessor::getValue()
 
 void DrumSamplerAudioProcessor::updateADSR() {
 
+    mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK")->load();
+    mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY")->load();
+    mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN")->load();
+    mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE")->load();
+
+
     for (int i = 0; i < mSampler.getNumSounds(); ++i)
     {
         if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
@@ -247,5 +258,23 @@ void DrumSamplerAudioProcessor::updateADSR() {
 
 }
 
+
+void DrumSamplerAudioProcessor::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
+{
+    mShouldUpdate = true;
+}
+
+
+juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::createParameters()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> parameters;
+    
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat> ("ATTACK", "Attack", 0.0f, 1.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("DECAY", "Decay", 0.0f, 1.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("RELEASE", "Release", 0.0f, 1.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("SUSTAIN", "Sustain", 0.0f, 1.0f, 1.0f));
+
+    return{ parameters.begin(), parameters.end()};
+}
 
     

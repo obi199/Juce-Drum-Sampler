@@ -38,7 +38,7 @@ class controlSlidersBlock : public juce::Component
 public:
     controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor&);
     
-    void sliderValueChanged(juce::Slider*);
+    //void sliderValueChanged(juce::Slider*);
     void resized() override;
     void paint(juce::Graphics&) override;
 
@@ -49,6 +49,11 @@ private:
     sliderController DecaySlider{ "Decay" };
     sliderController SustainSlider{ "Sustain" };
     sliderController ReleaseSlider{ "Release" };
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mAttackAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mDecayAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mSustainAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mReleaseAttachment;
 
     DrumSamplerAudioProcessor& audioProcessor;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(controlSlidersBlock)
@@ -118,6 +123,8 @@ private:
     DragAndDropButton myButton { audioProcessor };
     waveFormEditor waveForm{ audioProcessor };
     controlSlidersBlock CBlock{ audioProcessor };
+
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };

@@ -181,65 +181,69 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) :  audioP
     VolSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     VolSlider.setRange(-50.0f, 0.0f, 0.01f);
     VolSlider.setValue(-12.0f);
-    VolSlider.onValueChange = [this] { sliderValueChanged(&VolSlider); };
+    //VolSlider.onValueChange = [this] { sliderValueChanged(&VolSlider); };
     VolSlider.attachLabel(&VolSlider, false);
 
     addAndMakeVisible(&AttackSlider);
     AttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    AttackSlider.setRange(0.0f, 1.0f, 0.01f);
-    AttackSlider.setValue(0.0f);
-    AttackSlider.onValueChange = [this] { sliderValueChanged(&AttackSlider); };
+    //AttackSlider.setRange(0.0f, 1.0f, 0.01f);
+    mAttackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), "ATTACK", AttackSlider);
+    //AttackSlider.setValue(0.0f);
+    //AttackSlider.onValueChange = [this] { sliderValueChanged(&AttackSlider); };
     AttackSlider.attachLabel(&AttackSlider, false);
 
     addAndMakeVisible(&DecaySlider);
     DecaySlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    DecaySlider.setRange(0.0f, 1.0f, 0.01f);
-    DecaySlider.setValue(1.0f);
-    DecaySlider.onValueChange = [this] { sliderValueChanged(&DecaySlider); };
+    //DecaySlider.setRange(0.0f, 1.0f, 0.01f);
+    //DecaySlider.setValue(1.0f);
+    mDecayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), "DECAY", DecaySlider);
+    //DecaySlider.onValueChange = [this] { sliderValueChanged(&DecaySlider); };
     DecaySlider.attachLabel(&DecaySlider, false);
 
     addAndMakeVisible(&ReleaseSlider);
     ReleaseSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    ReleaseSlider.setRange(0.0f, 1.0f, 0.01f);
-    ReleaseSlider.setValue(1.0f);
-    ReleaseSlider.onValueChange = [this] { sliderValueChanged(&ReleaseSlider); };
+    //ReleaseSlider.setRange(0.0f, 1.0f, 0.01f);
+    //ReleaseSlider.setValue(1.0f);
+    mReleaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), "RELEASE", ReleaseSlider);
+    //ReleaseSlider.onValueChange = [this] { sliderValueChanged(&ReleaseSlider); };
     ReleaseSlider.attachLabel(&ReleaseSlider, false);
 
     addAndMakeVisible(&SustainSlider);
     SustainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    SustainSlider.setRange(0.0f, 1.0f, 0.01f);
-    SustainSlider.setValue(1.0f);
-    SustainSlider.onValueChange = [this] { sliderValueChanged(&SustainSlider); };
+    //SustainSlider.setRange(0.0f, 1.0f, 0.01f);
+   /* SustainSlider.setValue(1.0f);*/
+    mSustainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), "SUSTAIN", SustainSlider);
+    //SustainSlider.onValueChange = [this] { sliderValueChanged(&SustainSlider); };
     SustainSlider.attachLabel(&SustainSlider, false);
 
 }
 
-void controlSlidersBlock::sliderValueChanged(juce::Slider* slider) {
-    if (slider == &VolSlider)
-    {
-        audioProcessor.gain = VolSlider.getValue();
-        DBG(VolSlider.getValue());
-    }
-    else if (slider == &AttackSlider)
-    {
-        audioProcessor.getADSRparams().attack = AttackSlider.getValue();
-    }
-    else if (slider == &DecaySlider)
-    {
-        audioProcessor.getADSRparams().decay = DecaySlider.getValue();
-    }
-    else if (slider == &SustainSlider)
-    {
-        audioProcessor.getADSRparams().sustain = SustainSlider.getValue();
-    }
-    else if (slider == &ReleaseSlider)
-    {
-        audioProcessor.getADSRparams().release = ReleaseSlider.getValue();
-    }
-
-    audioProcessor.updateADSR();
-
-}
+//void controlSlidersBlock::sliderValueChanged(juce::Slider* slider) {
+//    if (slider == &VolSlider)
+//    {
+//        audioProcessor.gain = VolSlider.getValue();
+//        DBG(VolSlider.getValue());
+//    }
+//    else if (slider == &AttackSlider)
+//    {
+//        audioProcessor.getADSRparams().attack = AttackSlider.getValue();
+//    }
+//    else if (slider == &DecaySlider)
+//    {
+//        audioProcessor.getADSRparams().decay = DecaySlider.getValue();
+//    }
+//    else if (slider == &SustainSlider)
+//    {
+//        audioProcessor.getADSRparams().sustain = SustainSlider.getValue();
+//    }
+//    else if (slider == &ReleaseSlider)
+//    {
+//        audioProcessor.getADSRparams().release = ReleaseSlider.getValue();
+//    }
+//
+//    audioProcessor.updateADSR();
+//
+//}
 
 void controlSlidersBlock::resized() {
 

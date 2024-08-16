@@ -13,7 +13,7 @@
 //==============================================================================
 /**
 */
-class DrumSamplerAudioProcessor  : public juce::AudioProcessor
+class DrumSamplerAudioProcessor  : public juce::AudioProcessor, public juce::ValueTree::Listener
    
 {
 public:
@@ -70,7 +70,7 @@ public:
     void getValue();
     void updateADSR();
     juce::ADSR::Parameters& getADSRparams() { return mADSRparams; }
-  
+    juce::AudioProcessorValueTreeState& getAPVTS() { return mAPVSTATE; }
 
      
 private:
@@ -79,9 +79,10 @@ private:
     const int numVoices{ 3 };
     juce::AudioBuffer<float> mWaveForm;
     juce::ADSR::Parameters mADSRparams;
-
-   
-  
+    juce::AudioProcessorValueTreeState mAPVSTATE;
+    void valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property);
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+    std::atomic<bool> mShouldUpdate{ false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
 };
