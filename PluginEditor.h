@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "WaveFormEditor.h"
 
 //==============================================================================
 /**Drum Sampler Plugin
@@ -62,22 +63,6 @@ private:
 
 
 
-
-
-
-class waveFormEditor : public juce::Component, private juce::ChangeListener {
-public:
-    waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor&);
-    //~waveFormEditor() override;
-    void paint(juce::Graphics&) override;
-    void paintIfNoFileLoaded(juce::Graphics&, const juce::Rectangle<int>&);
-    void paintIfFileLoaded(juce::Graphics&, const juce::Rectangle<int>&);
-    void thumbnailChanged();
-    void changeListenerCallback(juce::ChangeBroadcaster*) override;
-private: 
-    DrumSamplerAudioProcessor& Processor;
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(waveFormEditor)
-};
 
 
 

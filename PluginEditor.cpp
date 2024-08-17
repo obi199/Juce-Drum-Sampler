@@ -11,7 +11,7 @@
 
 //==============================================================================
 DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor(p){ 
+    : AudioProcessorEditor (&p), waveForm(p), audioProcessor(p){ 
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (800, 400);
@@ -110,54 +110,7 @@ void DragAndDropButton::paint(juce::Graphics& g)
 
 }
 
-waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor& p): Processor(p)
-{
-    Processor.thumbnail.addChangeListener(this);
-}
 
-
-void waveFormEditor::paint(juce::Graphics& g) {
-
-    juce::Rectangle<int> thumbnailBounds(10, 100, getWidth() - 20, getHeight() - 120);
-
-    if (Processor.thumbnail.getNumChannels() == 0)
-        paintIfNoFileLoaded(g, thumbnailBounds);
-    else
-        paintIfFileLoaded(g, thumbnailBounds);
-
-}
-
-void waveFormEditor::paintIfNoFileLoaded(juce::Graphics& g, const juce::Rectangle<int>& thumbnailBounds)
-{
-    g.setColour(juce::Colours::darkgrey);
-    g.fillRect(thumbnailBounds);
-    g.setColour(juce::Colours::white);
-    g.drawFittedText("No File Loaded", thumbnailBounds, juce::Justification::centred, 1);
-}
-
-void waveFormEditor::paintIfFileLoaded(juce::Graphics& g, const juce::Rectangle<int>& thumbnailBounds)
-{
-    g.setColour(juce::Colours::white);
-    g.fillRect(thumbnailBounds);
-
-    g.setColour(juce::Colours::red);                               // [8]
-
-    Processor.thumbnail.drawChannels(g,                                      // [9]
-        thumbnailBounds,
-        0.0,                                    // start time
-        Processor.thumbnail.getTotalLength(),             // end time
-        1.0f);                                  // vertical zoom
-}
-
-void waveFormEditor::changeListenerCallback(juce::ChangeBroadcaster* source)
-{
-    if (source == &Processor.thumbnail)  thumbnailChanged();
-}
-
-void waveFormEditor::thumbnailChanged()
-{
-    repaint();
-}
 
 sliderController::sliderController(juce::String name) {
 
