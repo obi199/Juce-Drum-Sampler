@@ -71,6 +71,9 @@ public:
     void updateADSR();
     juce::ADSR::Parameters& getADSRparams() { return mADSRparams; }
     juce::AudioProcessorValueTreeState& getAPVTS() { return mAPVSTATE; }
+    std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
+    std::atomic<int>& getSampleCount() { return mSampleCount; }
+    float getPosInSec() { return currentPositionInSeconds; }
 
      
 private:
@@ -83,6 +86,12 @@ private:
     void valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property);
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     std::atomic<bool> mShouldUpdate{ false };
+    std::atomic<bool> mIsNotePlayed{ false };
+    std::atomic<int> mSampleCount{ false };
+    int timeLinePosInSamples;
+    float currentPositionInSeconds=0;
+    double mSamplerate = 441000.0;
+    int64_t totalSamplesProcessed = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
 };

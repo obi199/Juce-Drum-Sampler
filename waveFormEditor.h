@@ -30,7 +30,9 @@ private:
 };*/
 
 
-class waveFormEditor : public juce::Component, private juce::ChangeListener {
+class waveFormEditor : public juce::Component, private juce::ChangeListener, 
+    private juce::Timer
+{
 public:
     waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor&);
     ~waveFormEditor() override;
@@ -40,6 +42,8 @@ public:
     void thumbnailChanged();
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
     void resized() override;
+    void timerCallback() override;
+   
 
 private: 
     DrumSamplerAudioProcessor& Processor;

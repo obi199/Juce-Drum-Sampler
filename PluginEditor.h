@@ -21,6 +21,8 @@
 //main component//
 
 class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor
+    
+    
 {
 public:
     DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor&);
@@ -32,6 +34,7 @@ public:
 
     void ButtonClicked(juce::Button* button, int noteNumber);    
     juce::File audioFile;
+   
    
 private:
 

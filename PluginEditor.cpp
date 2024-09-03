@@ -15,19 +15,21 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (800, 400);
-
     myButton.setButtonText("myButton");
     addAndMakeVisible(&myButton);
     myButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
     myButton.onClick = [this] {ButtonClicked(&myButton, 60); };
     addAndMakeVisible(&waveForm);
     addAndMakeVisible(&CBlock);
+   
+   
 
     
 }
 
 DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
 {
+
 }
 
 //==============================================================================
@@ -60,6 +62,8 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
         audioProcessor.playFile(noteNumber);
     }
 }
+
+
 
 
 

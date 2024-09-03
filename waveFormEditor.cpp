@@ -18,11 +18,13 @@
 waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor& p): Processor(p)
 {
     Processor.thumbnail.addChangeListener(this);
+    startTimer(30);
 }
 
 
 waveFormEditor::~waveFormEditor()
 {
+    stopTimer();
 }
 
 
@@ -51,12 +53,21 @@ void waveFormEditor::paintIfFileLoaded(juce::Graphics& g, const juce::Rectangle<
     g.fillRect(thumbnailBounds);
 
     g.setColour(juce::Colours::red);                               
+    auto audioLength = (float)Processor.thumbnail.getTotalLength();
 
     Processor.thumbnail.drawChannels(g,                                      
         thumbnailBounds,
         0.0,                                    // start time
-        Processor.thumbnail.getTotalLength(),             // end time
+        audioLength,             // end time
         1.0f);                                  // vertical zoom
+
+    auto audioPosition = (float) Processor.getPosInSec();
+    //DBG("audioPosition = " << audioPosition << " getPos= "<< Processor.getPosInSec());
+    auto drawPosition = (audioPosition / audioLength) * (float)thumbnailBounds.getWidth()
+        + (float)thumbnailBounds.getX();                               
+    g.drawLine(drawPosition, (float)thumbnailBounds.getY(), drawPosition,
+        (float)thumbnailBounds.getBottom(), 2.0f);
+
 }
 
 void waveFormEditor::changeListenerCallback(juce::ChangeBroadcaster* source)
@@ -76,6 +87,14 @@ void waveFormEditor::resized()
     // components that your component contains..
 
 }
+
+void waveFormEditor::timerCallback()
+
+{
+    repaint();
+}
+
+
 
 
 

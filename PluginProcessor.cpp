@@ -105,6 +105,8 @@ void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     mSampler.setCurrentPlaybackSampleRate(sampleRate);
     updateADSR();
+    mSamplerate = sampleRate;
+    totalSamplesProcessed = 0;
     
 }
 
@@ -146,13 +148,30 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
-
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
     if (mShouldUpdate) updateADSR();
     
+
+    juce::MidiMessage m;
+    juce::MidiBuffer::Iterator it{midiMessages};
+    int sample;
+
+    while (it.getNextEvent(m, sample))
+    {
+        if (m.isNoteOn())
+            mIsNotePlayed = true;
+        else if(m.isNoteOff())
+            mIsNotePlayed = false;
+    }
+
+    mSampleCount = mIsNotePlayed ? mSampleCount += buffer.getNumSamples():0;
+    //mSampleCount += buffer.getNumSamples();
+    currentPositionInSeconds = mSampleCount / mSamplerate;
+
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
+
    /* for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
@@ -166,7 +185,7 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     //buffer.applyGain(juce::Decibels::decibelsToGain(gain));
 
-    
+   
 }
 
 //==============================================================================
@@ -237,7 +256,7 @@ void DrumSamplerAudioProcessor::playFile(int noteNumber)
 
 void DrumSamplerAudioProcessor::getValue() 
 {
-    DBG("Volume: " << gain);
+    //DBG("Volume: " << gain);
 }
 
 void DrumSamplerAudioProcessor::updateADSR() {
