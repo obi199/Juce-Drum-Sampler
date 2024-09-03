@@ -106,7 +106,6 @@ void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     mSampler.setCurrentPlaybackSampleRate(sampleRate);
     updateADSR();
     mSamplerate = sampleRate;
-    totalSamplesProcessed = 0;
     
 }
 

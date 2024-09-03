@@ -91,7 +91,6 @@ private:
     int timeLinePosInSamples;
     float currentPositionInSeconds=0;
     double mSamplerate = 441000.0;
-    int64_t totalSamplesProcessed = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
 };
