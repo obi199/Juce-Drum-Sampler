@@ -11,18 +11,16 @@
 
 //==============================================================================
 DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor& p)
-    : AudioProcessorEditor (&p), waveForm(p), audioProcessor(p){ 
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
+    : AudioProcessorEditor (&p), waveComponent(p), audioProcessor(p){
+
     setSize (800, 400);
     myButton.setButtonText("myButton");
     addAndMakeVisible(&myButton);
     myButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
     myButton.onClick = [this] {ButtonClicked(&myButton, 60); };
-    addAndMakeVisible(&waveForm);
     addAndMakeVisible(&CBlock);
-   
-   
+    addAndMakeVisible(&waveComponent);
+    addAndMakeVisible(&position);
 
     
 }
@@ -35,12 +33,7 @@ DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
 //==============================================================================
 void DrumSamplerAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    //g.fillAll(juce::Colours::black);
 
-    //g.setColour(juce::Colours::red);
-    //g.setFont(15.0f);
-    //
 }
 
 void DrumSamplerAudioProcessorEditor::resized()
@@ -49,8 +42,14 @@ void DrumSamplerAudioProcessorEditor::resized()
     // subcomponents in your editor..
 
     myButton.setBounds(10, getHeight()-80, 70, 70);
-    waveForm.setBounds((getWidth() / 2), (getHeight() / 2) - 270, 250, 250);
     CBlock.setBounds((getWidth() / 2), (getHeight() / 2), (getWidth() / 2)-50, 150);
+
+    //wave thumbnail
+    //juce::Rectangle<int> thumbnailBounds(100, 100, getWidth() - 100, getHeight() - 150);
+    juce::Rectangle<int> thumbnailBounds ((getWidth() / 2), 10, getWidth()/2 - 50, getHeight()/2 - 20);
+    //DBG(getHeight() / 2 - 2);
+    waveComponent.setBounds(thumbnailBounds);
+    position.setBounds(thumbnailBounds);
    
     //GainSlider.setBounds(getWidth() / 2 + 150, getHeight() / 2 - 50, 80, 150);
 }

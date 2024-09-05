@@ -40,8 +40,10 @@ private:
 
     DrumSamplerAudioProcessor& audioProcessor;
     DragAndDropButton myButton { audioProcessor };
-    waveFormEditor waveForm{ audioProcessor };
+    //mainWaveComponent WaveComponent{ audioProcessor };
     controlSlidersBlock CBlock{ audioProcessor };
+    waveFormEditor waveComponent{ audioProcessor };
+    positionLine position{ audioProcessor };
 
 
 

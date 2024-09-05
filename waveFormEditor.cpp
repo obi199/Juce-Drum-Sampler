@@ -14,59 +14,48 @@
 //==============================================================================
 
 
-
+///class thumbnail waveform-----------
 waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor& p): Processor(p)
 {
     Processor.thumbnail.addChangeListener(this);
-    startTimer(30);
 }
-
 
 waveFormEditor::~waveFormEditor()
 {
-    stopTimer();
 }
-
 
 void waveFormEditor::paint(juce::Graphics& g) {
 
-    juce::Rectangle<int> thumbnailBounds(10, 100, getWidth() - 20, getHeight() - 120);
+    /*juce::Rectangle<int> thumbnailBounds(10, 100, getWidth() - 20, getHeight() - 120);*/
 
     if (Processor.thumbnail.getNumChannels() == 0)
-        paintIfNoFileLoaded(g, thumbnailBounds);
+        paintIfNoFileLoaded(g);
     else
-        paintIfFileLoaded(g, thumbnailBounds);
+        paintIfFileLoaded(g);
 
 }
 
-void waveFormEditor::paintIfNoFileLoaded(juce::Graphics& g, const juce::Rectangle<int>& thumbnailBounds)
+void waveFormEditor::paintIfNoFileLoaded(juce::Graphics& g)
 {
     g.setColour(juce::Colours::darkgrey);
-    g.fillRect(thumbnailBounds);
+    g.fillAll(juce::Colours::white);
     g.setColour(juce::Colours::white);
-    g.drawFittedText("No File Loaded", thumbnailBounds, juce::Justification::centred, 1);
+    g.drawFittedText("No File Loaded", getLocalBounds(), juce::Justification::centred, 1);
 }
 
-void waveFormEditor::paintIfFileLoaded(juce::Graphics& g, const juce::Rectangle<int>& thumbnailBounds)
+void waveFormEditor::paintIfFileLoaded(juce::Graphics& g)
 {
     g.setColour(juce::Colours::white);
-    g.fillRect(thumbnailBounds);
+    g.fillAll(juce::Colours::white);
 
     g.setColour(juce::Colours::red);                               
     auto audioLength = (float)Processor.thumbnail.getTotalLength();
 
     Processor.thumbnail.drawChannels(g,                                      
-        thumbnailBounds,
+        getLocalBounds(),
         0.0,                                    // start time
         audioLength,             // end time
         1.0f);                                  // vertical zoom
-
-    auto audioPosition = (float) Processor.getPosInSec();
-    //DBG("audioPosition = " << audioPosition << " getPos= "<< Processor.getPosInSec());
-    auto drawPosition = (audioPosition / audioLength) * (float)thumbnailBounds.getWidth()
-        + (float)thumbnailBounds.getX();                               
-    g.drawLine(drawPosition, (float)thumbnailBounds.getY(), drawPosition,
-        (float)thumbnailBounds.getBottom(), 2.0f);
 
 }
 
@@ -81,21 +70,42 @@ void waveFormEditor::thumbnailChanged()
 }
 
 
-void waveFormEditor::resized()
+
+
+//Position line class
+
+positionLine::positionLine(DrumSamplerAudioProcessor& p) : Processor(p)
 {
-    // This method is where you should set the bounds of any child
-    // components that your component contains..
+    startTimer(30);
+}
+
+positionLine::~positionLine()
+{
+    stopTimer();
+}
+
+void positionLine::paint(juce::Graphics& g)
+{
+    auto audioLength = (float)Processor.thumbnail.getTotalLength();
+    auto audioPosition = (float)Processor.getPosInSec();
+    DBG("audioPosition = " << audioPosition << " getPos= "<< Processor.getPosInSec());
+
+    if (audioLength > 0.0) {
+        auto drawPosition = (audioPosition / audioLength) * (float)getWidth();
+        g.setColour(juce::Colours::red);
+        g.drawLine(drawPosition, 0.0f, drawPosition,
+            (float)getHeight(), 2.0f);
+    }
+    //###position line fill
+   /* g.setColour(juce::Colours::black.withAlpha(0.2f));
+    g.fillRect(1.0, (float)thumbnailBounds.getY(), drawPosition, (float)thumbnailBounds.getHeight());*/
 
 }
 
-void waveFormEditor::timerCallback()
-
+void positionLine::timerCallback()
 {
     repaint();
 }
-
-
-
 
 
 
