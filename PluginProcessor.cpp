@@ -153,24 +153,37 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     if (mShouldUpdate) updateADSR();
     
 
-    juce::MidiMessage m;
-    juce::MidiBuffer::Iterator it{midiMessages};
-    int sample;
+    //juce::MidiMessage m;
+    //juce::MidiBuffer::Iterator it{midiMessages};
+    //int sample;
+   
+    //while (it.getNextEvent(m, sample))
+    //{
+    //    if (m.isNoteOn())
+    //        mIsNotePlayed = true;
+    //    else if(m.isNoteOff())
+    //        mIsNotePlayed = false;
+    //}
+   /* mSampleCount = mIsNotePlayed ? mSampleCount += buffer.getNumSamples():0;
+    currentPositionInSeconds = mSampleCount / mSamplerate*/;
+  
 
-    while (it.getNextEvent(m, sample))
-    {
-        if (m.isNoteOn())
-            mIsNotePlayed = true;
-        else if(m.isNoteOff())
-            mIsNotePlayed = false;
+    if (mSampler.getNumVoices() > 0 && mSampler.getVoice(0)->isVoiceActive()) {
+        // Increment the sample position by the number of processed samples
+        mSampleCount += buffer.getNumSamples();
+    }
+    else {
+        mSampleCount = 0;  // Reset when sample playback stops
     }
 
-    mSampleCount = mIsNotePlayed ? mSampleCount += buffer.getNumSamples():0;
-    //mSampleCount += buffer.getNumSamples();
     currentPositionInSeconds = mSampleCount / mSamplerate;
+
 
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
+
+
+    //apply gain#####    
    /* for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
@@ -228,6 +241,8 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path)
     auto file = juce::File(path);
 
     mFormatReader = mFormatManager.createReaderFor(file);
+
+    //auto duration = (float)mFormatReader->lengthInSamples / mFormatReader->sampleRate;
     
     //auto sampleLength = static_cast<int>(mFormatReader->lengthInSamples);
     //mWaveForm.setSize(1, sampleLength);
@@ -295,4 +310,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
     return{ parameters.begin(), parameters.end()};
 }
 
-    
+//float DrumSamplerAudioProcessor::getCurrentSamplePosition()
+//{
+//    return (float)mSampler.getVoice(0)->getCurrentlyPlayingNote() / mSampler.getVoice(0)->getSampleRate();
+//}
+
+
+//
+//float DrumSamplerAudioProcessor::getCurrentSamplePosition()
+//{
+//    auto* voice = dynamic_cast<juce::SamplerVoice*>(mSampler.getVoice(0));
+//    if (voice != nullptr && voice->isVoiceActive())
+//    {
+//        double position = (double)voice->get() / voice->getSoundLengthInSamples();
+//        return position;
+//    }
+//    return 0.0f;
+//}

@@ -88,7 +88,7 @@ void positionLine::paint(juce::Graphics& g)
 {
     auto audioLength = (float)Processor.thumbnail.getTotalLength();
     auto audioPosition = (float)Processor.getPosInSec();
-    DBG("audioPosition = " << audioPosition << " getPos= "<< Processor.getPosInSec());
+    //DBG("audioPosition = " << audioPosition << " getPos= "<< Processor.getPosInSec());
 
     if (audioLength > 0.0) {
         auto drawPosition = (audioPosition / audioLength) * (float)getWidth();
