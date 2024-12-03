@@ -45,12 +45,13 @@ public:
 
 private:
 
-    sliderController VolSlider{ "Volume" };
+    sliderController GainSlider{ "Gain" };
     sliderController AttackSlider{ "Attack" };
     sliderController DecaySlider{ "Decay" };
     sliderController SustainSlider{ "Sustain" };
     sliderController ReleaseSlider{ "Release" };
 
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mGainAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mAttackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mDecayAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mSustainAttachment;

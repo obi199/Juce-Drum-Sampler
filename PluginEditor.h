@@ -39,7 +39,8 @@ public:
 private:
 
     DrumSamplerAudioProcessor& audioProcessor;
-    DragAndDropButton myButton { audioProcessor };
+    DragAndDropButton myButton { audioProcessor, 60 };
+    DragAndDropButton myButton2{ audioProcessor, 61 };
     //mainWaveComponent WaveComponent{ audioProcessor };
     controlSlidersBlock CBlock{ audioProcessor };
     waveFormEditor waveComponent{ audioProcessor };

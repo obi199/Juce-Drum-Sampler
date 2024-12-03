@@ -31,6 +31,7 @@ void waveFormEditor::paint(juce::Graphics& g) {
     if (Processor.thumbnail.getNumChannels() == 0)
         paintIfNoFileLoaded(g);
     else
+        //DBG(Processor.thumbnail.getHashCode());
         paintIfFileLoaded(g);
 
 }

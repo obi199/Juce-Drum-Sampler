@@ -14,7 +14,8 @@
 //==============================================================================
 
 //this is your drag and drop button//
-DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p) : Processor(p) {
+DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p, int m) : Processor(p) {
+    midiNote = m;
 }
 
 DragAndDropButton::~DragAndDropButton() {}
@@ -30,12 +31,13 @@ bool DragAndDropButton::isInterestedInFileDrag(const juce::StringArray& files)
 
 void DragAndDropButton::filesDropped(const juce::StringArray& files, int x, int y)
 {
-    for (auto file : files)
+    for (juce::File file : files)
     {
         if (isInterestedInFileDrag(files)) {
-
-            DBG("File dropped: " << file);
-            Processor.loadFile(file);
+            filename = file.getFileName();
+            DBG("File dropped: " << filename);
+            DBG("Midinote: " << midiNote);
+            Processor.loadFile(file.getFullPathName(), midiNote);
         }
     }
     repaint();
@@ -50,7 +52,7 @@ void DragAndDropButton::paint(juce::Graphics& g)
     {
         g.fillAll(juce::Colours::red);
 
-        g.drawText("Sound Loaded", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
+        g.drawText(filename, getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
     }
     else
     {
@@ -58,3 +60,7 @@ void DragAndDropButton::paint(juce::Graphics& g)
     }
 
 }
+
+//void DragAndDropButton::setMidinote(int m) {
+//    midiNote = m;
+//}

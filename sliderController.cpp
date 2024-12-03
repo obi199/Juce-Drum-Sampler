@@ -41,12 +41,13 @@ void sliderController::attachLabel(Component* owner, bool onLeft)
 controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioProcessor(p)
 {
     //setSize(200, 100);
-    addAndMakeVisible(&VolSlider);
-    VolSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    VolSlider.setRange(-50.0f, 0.0f, 0.01f);
-    VolSlider.setValue(-12.0f);
+    addAndMakeVisible(&GainSlider);
+    GainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    //VolSlider.setRange(-50.0f, 0.0f, 0.01f);
+    //VolSlider.setValue(-12.0f);
+    mGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), "GAIN", GainSlider);
     //VolSlider.onValueChange = [this] { sliderValueChanged(&VolSlider); };
-    VolSlider.attachLabel(&VolSlider, false);
+    GainSlider.attachLabel(&GainSlider, false);
 
     addAndMakeVisible(&AttackSlider);
     AttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -117,7 +118,7 @@ void controlSlidersBlock::resized() {
     const auto sWidth = 70;
     const auto sHeight = 70;
 
-    VolSlider.setBounds(x, y, sWidth, sHeight);
+    GainSlider.setBounds(x, y, sWidth, sHeight);
     AttackSlider.setBounds(x + sWidth, (getHeight() / 2), sWidth, sHeight);
     DecaySlider.setBounds(x + sWidth * 2, (getHeight() / 2), sWidth, sHeight);
     SustainSlider.setBounds(x + sWidth * 3, (getHeight() / 2), sWidth, sHeight);
