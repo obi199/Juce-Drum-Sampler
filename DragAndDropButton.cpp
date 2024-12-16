@@ -14,8 +14,9 @@
 //==============================================================================
 
 //this is your drag and drop button//
-DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p, int m) : Processor(p) {
+DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p, int m, juce::String name) : Processor(p) {
     midiNote = m;
+    buttonName = name;
 }
 
 DragAndDropButton::~DragAndDropButton() {}
@@ -37,7 +38,7 @@ void DragAndDropButton::filesDropped(const juce::StringArray& files, int x, int 
             filename = file.getFileName();
             DBG("File dropped: " << filename);
             DBG("Midinote: " << midiNote);
-            Processor.loadFile(file.getFullPathName(), midiNote);
+            Processor.loadFile(file.getFullPathName(), midiNote, buttonName);
         }
     }
     repaint();

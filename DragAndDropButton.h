@@ -20,7 +20,7 @@
 class DragAndDropButton : public juce::TextButton, public juce::FileDragAndDropTarget
 {
 public:
-    DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor&, int m); //insert midi notes for 2nd pad
+    DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor&, int m, juce::String name); //insert midi notes for 2nd pad
     ~DragAndDropButton() override;
     void paint(juce::Graphics&) override;
 
@@ -35,6 +35,7 @@ private:
     DrumSamplerAudioProcessor& Processor;
     juce::String filename;
     int midiNote;
+    juce::String buttonName;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DragAndDropButton)
 };

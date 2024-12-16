@@ -55,8 +55,7 @@ public:
 
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    void loadFile (const juce::String& path, int noteNumber);
-    //void loadFile(const juce::File& file);
+    void loadFile (const juce::String& path, int noteNumber, juce::String buttonName);
     int getNumSamplerSounds() { return mSampler.getNumSounds(); }
     juce::AudioFormatManager mFormatManager;
    
@@ -64,10 +63,6 @@ public:
     juce::AudioThumbnail thumbnail;
     juce::AudioFormatReader* mFormatReader{ nullptr };
     void playFile(int noteNumber);
-    //float gain{ 0.5 };
-    //float gain;
- /*   float attack{ 0.5 };
-    float decay{ 0.5 };*/
     float updateGain();
     void getValue();
     void updateADSR();
@@ -76,7 +71,6 @@ public:
     std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     float getPosInSec() { return currentPositionInSeconds; }
-    //juce::int64 getThumbHash() { return thumbHash;}
     juce::int64 thumbHash;
     std::vector<juce::File> fileList;
 

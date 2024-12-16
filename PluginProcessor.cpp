@@ -222,7 +222,7 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
     return new DrumSamplerAudioProcessor();
 }
 
-void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber)
+void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber, juce::String buttonName)
 {   
     //mSampler.clearSounds();
 
@@ -235,6 +235,12 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
     if (mFormatReader != nullptr) {
         thumbnail.setSource(new juce::FileInputSource(file));
         fileList.push_back(file);
+ /*       if (noteNumber == 60) fileList[0] = file;
+        if (noteNumber == 61) fileList[1] = file;*/
+        DBG(buttonName);
+        if (buttonName == "myButton1") fileList[0] = file;
+        if (buttonName == "myButton2") fileList[1] = file;
+
         juce::BigInteger range;
         range.setRange(noteNumber, 1, true);
         mSampler.addSound(new juce::SamplerSound(fileName, *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0));
@@ -246,7 +252,6 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
 
 void DrumSamplerAudioProcessor::playFile(int noteNumber)
 {
-     DBG(noteNumber);
 
      mSampler.noteOn(1, noteNumber, (juce::uint8)7);
 }
@@ -300,20 +305,4 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
     return{ parameters.begin(), parameters.end()};
 }
 
-//float DrumSamplerAudioProcessor::getCurrentSamplePosition()
-//{
-//    return (float)mSampler.getVoice(0)->getCurrentlyPlayingNote() / mSampler.getVoice(0)->getSampleRate();
-//}
 
-
-//
-//float DrumSamplerAudioProcessor::getCurrentSamplePosition()
-//{
-//    auto* voice = dynamic_cast<juce::SamplerVoice*>(mSampler.getVoice(0));
-//    if (voice != nullptr && voice->isVoiceActive())
-//    {
-//        double position = (double)voice->get() / voice->getSoundLengthInSamples();
-//        return position;
-//    }
-//    return 0.0f;
-//}
