@@ -72,7 +72,8 @@ public:
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     float getPosInSec() { return currentPositionInSeconds; }
     juce::int64 thumbHash;
-    std::vector<juce::File> fileList;
+    juce::String initFile = "C:\initFile.wav";
+    std::vector<juce::File> fileList = { initFile, initFile }; //init vector with Files
 
      
 private:

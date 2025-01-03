@@ -67,13 +67,18 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
     if (button == &myButton)
     {   
         audioProcessor.playFile(noteNumber);
-        audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[0]));
+        if (audioProcessor.fileList.size() >= 0) {
+            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[0]));
+        }
+
     }
 
     else if (button == &myButton2)
     {
         audioProcessor.playFile(noteNumber);
-        audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[1]));
+        if (audioProcessor.fileList.size() >= 1) {
+            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[1]));
+        }
     }
 }
 
