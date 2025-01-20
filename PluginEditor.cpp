@@ -70,6 +70,7 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
         if (audioProcessor.fileList.size() >= 0) {
             audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[0]));
         }
+        audioProcessor.updateADSR(1);
 
     }
 
@@ -79,6 +80,8 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
         if (audioProcessor.fileList.size() >= 1) {
             audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[1]));
         }
+        audioProcessor.updateADSR(2);
+        //audioProcessor.getADSRparams().attack = audioProcessor.getAPVTS().getRawParameterValue("ATTACK2")->load();
     }
 }
 

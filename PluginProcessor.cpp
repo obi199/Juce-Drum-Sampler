@@ -235,8 +235,7 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
     if (mFormatReader != nullptr) {
         thumbnail.setSource(new juce::FileInputSource(file));
         fileList.push_back(file);
- /*       if (noteNumber == 60) fileList[0] = file;
-        if (noteNumber == 61) fileList[1] = file;*/
+
         DBG(buttonName);
         if (buttonName == "myButton1") fileList[0] = file;
         if (buttonName == "myButton2") fileList[1] = file;
@@ -278,10 +277,28 @@ void DrumSamplerAudioProcessor::updateADSR() {
     for (int i = 0; i < mSampler.getNumSounds(); ++i)
     {
         if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
-        {
+        {   
+            DBG(sound->getName());
             sound->setEnvelopeParameters(mADSRparams);
         }
     }
+
+}
+// new update ADSR per each sound
+void DrumSamplerAudioProcessor::updateADSR(int i) {
+
+    mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK")->load();
+    mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY")->load();
+    mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN")->load();
+    mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE")->load();
+
+
+    if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
+    {
+        //DBG(sound->getName());
+        sound->setEnvelopeParameters(mADSRparams);
+    }
+    
 
 }
 
@@ -301,6 +318,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("DECAY", "Decay", 0.0f, 1.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("RELEASE", "Release", 0.0f, 1.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("SUSTAIN", "Sustain", 0.0f, 1.0f, 1.0f));
+
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("ATTACK2", "Attack", 0.0f, 1.0f, 0.0f));
 
     return{ parameters.begin(), parameters.end()};
 }

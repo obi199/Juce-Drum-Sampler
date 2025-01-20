@@ -66,13 +66,14 @@ public:
     float updateGain();
     void getValue();
     void updateADSR();
+    void updateADSR(int i);
     juce::ADSR::Parameters& getADSRparams() { return mADSRparams; }
     juce::AudioProcessorValueTreeState& getAPVTS() { return mAPVSTATE; }
     std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     float getPosInSec() { return currentPositionInSeconds; }
     juce::int64 thumbHash;
-    juce::String initFile = "C:\initFile.wav";
+    juce::String initFile = "C:\initFile.wav"; //dummy file
     std::vector<juce::File> fileList = { initFile, initFile }; //init vector with Files
 
      
