@@ -24,8 +24,6 @@ public:
     ~sliderController() override;
     void attachLabel(Component*, bool);
 
-    //void paint(juce::Graphics&) override;
-    //void resized() override;
 
 private:
     juce::Label nameLabel;
@@ -39,9 +37,11 @@ class controlSlidersBlock : public juce::Component
 public:
     controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor&);
     //~controlSlidersBlock() override;
-    //void sliderValueChanged(juce::Slider*);
+  
     void resized() override;
     void paint(juce::Graphics&) override;
+    typedef juce::AudioProcessorValueTreeState::SliderAttachment SliderAttachment;
+    void changeSliderParameter(const juce::String&, juce::String);
 
 private:
 
@@ -51,11 +51,11 @@ private:
     sliderController SustainSlider{ "Sustain" };
     sliderController ReleaseSlider{ "Release" };
 
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mGainAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mAttackAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mDecayAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mSustainAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mReleaseAttachment;
+    std::unique_ptr<SliderAttachment> mGainAttachment;
+    std::unique_ptr<SliderAttachment> mAttackAttachment;
+    std::unique_ptr<SliderAttachment> mDecayAttachment;
+    std::unique_ptr<SliderAttachment> mSustainAttachment;
+    std::unique_ptr<SliderAttachment> mReleaseAttachment;
 
     DrumSamplerAudioProcessor& audioProcessor;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(controlSlidersBlock)

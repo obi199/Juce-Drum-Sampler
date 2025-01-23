@@ -34,6 +34,7 @@ public:
 
     void ButtonClicked(juce::Button* button, int noteNumber);    
     juce::File audioFile;
+
    
    
 private:
@@ -45,6 +46,7 @@ private:
     controlSlidersBlock CBlock{ audioProcessor };
     waveFormEditor waveComponent{ audioProcessor };
     positionLine position{ audioProcessor };
+
 
 
 
