@@ -74,7 +74,8 @@ public:
     float getPosInSec() { return currentPositionInSeconds; }
     juce::int64 thumbHash;
     juce::String initFile = "C:\initFile.wav"; //dummy file
-    std::vector<juce::File> fileList = { initFile, initFile }; //init vector with Files
+    std::vector<juce::File> sampleFiles = { initFile, initFile }; //init vector with Files
+    int samplePlayed(int midiNote);
 
      
 private:
@@ -94,6 +95,8 @@ private:
     double mSamplerate = 441000.0;
     float duration;
     float getCurrentSamplePosition();
+    int sampleIndex;
+   
   
    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)

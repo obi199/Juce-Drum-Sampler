@@ -59,12 +59,13 @@ void DrumSamplerAudioProcessorEditor::resized()
 }
 
 void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int noteNumber)
+
 {
     if (button == &myButton)
     {   
         audioProcessor.playFile(noteNumber);
-        if (audioProcessor.fileList.size() >= 0) {
-            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[0]));
+        if (audioProcessor.sampleFiles.size() >= 0) {
+            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.sampleFiles[0]));
         }
         // Update the slider attachment to the new parameter
         CBlock.changeSliderParameter("GAIN", "Gain");
@@ -72,15 +73,15 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
         CBlock.changeSliderParameter("DECAY", "Decay");
         CBlock.changeSliderParameter("RELEASE", "Release");
         CBlock.changeSliderParameter("SUSTAIN", "Sustain");
-        audioProcessor.updateADSR(1);
+        audioProcessor.updateADSR(0);
 
     }
 
     else if (button == &myButton2)
     {
         audioProcessor.playFile(noteNumber);
-        if (audioProcessor.fileList.size() >= 1) {
-            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.fileList[1]));
+        if (audioProcessor.sampleFiles.size() >= 1) {
+            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.sampleFiles[1]));
         }
         // Update the slider attachment to the new parameter
         CBlock.changeSliderParameter("GAIN2", "Gain"); 
@@ -89,11 +90,8 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
         CBlock.changeSliderParameter("RELEASE2", "Release");
         CBlock.changeSliderParameter("SUSTAIN2", "Sustain");
         
-        audioProcessor.updateADSR(2);
+        audioProcessor.updateADSR(1);
 
-        // todo
-        // detach parameter from slider and attach new parameter
-        // Update the attachment to the new parameter
     }
 }
 

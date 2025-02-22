@@ -104,7 +104,7 @@ void DrumSamplerAudioProcessor::changeProgramName (int index, const juce::String
 void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mSampler.setCurrentPlaybackSampleRate(sampleRate);
-    updateADSR();
+    updateADSR(1);
     mSamplerate = sampleRate;
     
 }
@@ -147,12 +147,15 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    if (mShouldUpdate) updateADSR();
-  
+    if (mShouldUpdate) updateADSR(sampleIndex);
+
+   
+    DBG("processBlock Sample="<< sampleIndex);
 
     if (mSampler.getNumVoices() > 0 && mSampler.getVoice(0)->isVoiceActive()) {
         // Increment the sample position by the number of processed samples
         mSampleCount += buffer.getNumSamples();
+       
        
     }
     else {
@@ -216,17 +219,24 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
 
     auto file = juce::File(path);
     auto fileName = file.getFileName();
+    int i;
 
     mFormatReader = mFormatManager.createReaderFor(file);
 
 
     if (mFormatReader != nullptr) {
         thumbnail.setSource(new juce::FileInputSource(file));
-        fileList.push_back(file);
+        sampleFiles.push_back(file);
 
         DBG(buttonName);
-        if (buttonName == "myButton1") fileList[0] = file;
-        if (buttonName == "myButton2") fileList[1] = file;
+        if (buttonName == "myButton1") {
+            sampleFiles[0] = file;
+            i = 1;
+        }
+        if (buttonName == "myButton2") {
+            sampleFiles[1] = file;
+            i = 2;
+        }
 
         juce::BigInteger range;
         range.setRange(noteNumber, 1, true);
@@ -237,10 +247,11 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
 
 }
 
-void DrumSamplerAudioProcessor::playFile(int noteNumber)
+void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
 {
+     mSampler.noteOn(1, midiNoteNumber, (juce::uint8)7);
+     samplePlayed(midiNoteNumber);
 
-     mSampler.noteOn(1, noteNumber, (juce::uint8)7);
 }
 
 void DrumSamplerAudioProcessor::getValue() 
@@ -248,12 +259,25 @@ void DrumSamplerAudioProcessor::getValue()
     //DBG("Volume: " << gain);
 }
 
+int DrumSamplerAudioProcessor::samplePlayed(int midiNote) {
+    switch (midiNote) {
+    case 60:
+       sampleIndex = 0;
+       break;
+    case 61:
+       sampleIndex = 1;
+       break;
+    default:
+        break;
+    }
+    return sampleIndex;
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::createParameters()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> parameters;
 
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("GAIN", "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("GAIN", "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.2f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("ATTACK", "Attack", 0.0f, 1.0f, 0.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("DECAY", "Decay", 0.0f, 1.0f, 1.0f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("RELEASE", "Release", 0.0f, 1.0f, 0.5f));
@@ -261,9 +285,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
     //second pad
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("GAIN2", "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.1f));
     parameters.push_back(std::make_unique<juce::AudioParameterFloat>("ATTACK2", "Attack", 0.0f, 1.0f, 0.2f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("DECAY2", "Decay", 0.0f, 1.0f, 0.1f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("RELEASE2", "Release", 0.0f, 1.0f, 0.1f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("SUSTAIN2", "Sustain", 0.0f, 1.0f, 0.0f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("DECAY2", "Decay", 0.0f, 1.0f, 0.2f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("RELEASE2", "Release", 0.0f, 1.0f, 0.2f));
+    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("SUSTAIN2", "Sustain", 0.0f, 1.0f, 0.2f));
 
     return{ parameters.begin(), parameters.end() };
 }
@@ -282,7 +306,7 @@ void DrumSamplerAudioProcessor::updateADSR() {
     mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN")->load();
     mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE")->load();
 
- /*   mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK2")->load();
+ /* mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK2")->load();
     mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY2")->load();
     mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN2")->load();
     mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE2")->load();*/
@@ -292,7 +316,7 @@ void DrumSamplerAudioProcessor::updateADSR() {
     {
         if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
         {
-            DBG(sound->getName());
+            //DBG(sound->getName());
             sound->setEnvelopeParameters(mADSRparams);
         }
     }
@@ -302,14 +326,14 @@ void DrumSamplerAudioProcessor::updateADSR() {
 // new update ADSR per each sound
 void DrumSamplerAudioProcessor::updateADSR(int i) {
 
-    if(i == 1){
+    if(i == 0){
         mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK")->load();
         mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY")->load();
         mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN")->load();
         mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE")->load();
     }
 
-    if (i == 2) {
+    if (i == 1) {
         mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK2")->load();
         mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY2")->load();
         mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN2")->load();
@@ -319,7 +343,7 @@ void DrumSamplerAudioProcessor::updateADSR(int i) {
 
     if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
     {
-        //DBG(sound->getName());
+        DBG(sound->getName());
         sound->setEnvelopeParameters(mADSRparams);
     }
     
@@ -328,8 +352,10 @@ void DrumSamplerAudioProcessor::updateADSR(int i) {
 
 void DrumSamplerAudioProcessor::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
+    DBG("property changed: "<< property);
     mShouldUpdate = true;
 }
+
 
 
 
