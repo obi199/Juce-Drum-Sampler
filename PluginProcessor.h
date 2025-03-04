@@ -63,7 +63,7 @@ public:
     juce::AudioThumbnail thumbnail;
     juce::AudioFormatReader* mFormatReader{ nullptr };
     void playFile(int noteNumber);
-    float updateGain();
+    float updateGain(int);
     void getValue();
     void updateADSR();
     void updateADSR(int i);
@@ -96,6 +96,7 @@ private:
     float duration;
     float getCurrentSamplePosition();
     int sampleIndex;
+    float gain;
    
   
    
