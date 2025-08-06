@@ -29,6 +29,9 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     addAndMakeVisible(&CBlock);
     addAndMakeVisible(&waveComponent);
     addAndMakeVisible(&position);
+    addAndMakeVisible(&start);
+
+    //position.toBack(); //in back not visible
 
     
 }
@@ -55,6 +58,9 @@ void DrumSamplerAudioProcessorEditor::resized()
     juce::Rectangle<int> thumbnailBounds ((getWidth() / 2), 10, getWidth()/2 - 50, getHeight()/2 - 20);
     waveComponent.setBounds(thumbnailBounds);
     position.setBounds(thumbnailBounds);
+    //start.setBounds((getWidth() / 2)-50, 10, getWidth() / 2 - 50, getHeight() / 2 - 20);
+    start.setBounds(thumbnailBounds);
+
    
 }
 

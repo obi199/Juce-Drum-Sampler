@@ -9,7 +9,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-
+#include "CustomSamplerVoice.h"
 //==============================================================================
 /**
 */
@@ -58,15 +58,13 @@ public:
     void loadFile (const juce::String& path, int noteNumber, juce::String buttonName);
     int getNumSamplerSounds() { return mSampler.getNumSounds(); }
     juce::AudioFormatManager mFormatManager;
-   
     juce::AudioThumbnailCache thumbnailCache;                  
     juce::AudioThumbnail thumbnail;
     juce::AudioFormatReader* mFormatReader{ nullptr };
-    void playFile(int noteNumber);
+    void playFile(int);
     float updateGain(int);
     void getValue();
-    void updateADSR();
-    void updateADSR(int i);
+    void updateADSR(int);
     juce::ADSR::Parameters& getADSRparams() { return mADSRparams; }
     juce::AudioProcessorValueTreeState& getAPVTS() { return mAPVSTATE; }
     std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
@@ -76,6 +74,13 @@ public:
     juce::String initFile = "C:\initFile.wav"; //dummy file
     std::vector<juce::File> sampleFiles = { initFile, initFile }; //init vector with Files
     int samplePlayed(int midiNote);
+    float newPositionSec=0;
+    int newSampleCount=0;
+    int totalLength;
+    int sampleRate;
+    int mSampleStart=0;
+
+    //std::atomic<int> newSampleCount = 0;
 
      
 private:
@@ -85,21 +90,19 @@ private:
     juce::AudioBuffer<float> mWaveForm;
     juce::ADSR::Parameters mADSRparams;
     juce::AudioProcessorValueTreeState mAPVSTATE;
-    void valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property);
+    void valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier &property);
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     std::atomic<bool> mShouldUpdate{ false };
     std::atomic<bool> mIsNotePlayed{ false };
     std::atomic<int> mSampleCount{ false };
     int timeLinePosInSamples;
     float currentPositionInSeconds=0;
-    double mSamplerate = 441000.0;
+    double mSamplerate = 48000.0;
     float duration;
-    float getCurrentSamplePosition();
     int sampleIndex;
     float gain;
-   
-  
-   
+    int newSampleStart = 0;
+    juce::AudioSampleBuffer fileBuffer;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
 };
 

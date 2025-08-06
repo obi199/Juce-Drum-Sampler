@@ -42,13 +42,10 @@ private:
     DrumSamplerAudioProcessor& audioProcessor;
     DragAndDropButton myButton { audioProcessor, 60, "myButton1" };
     DragAndDropButton myButton2{ audioProcessor, 61, "myButton2" };
-    //mainWaveComponent WaveComponent{ audioProcessor };
     controlSlidersBlock CBlock{ audioProcessor };
     waveFormEditor waveComponent{ audioProcessor };
     positionLine position{ audioProcessor };
-
-
-
+    startLine start{ audioProcessor };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };

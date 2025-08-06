@@ -28,10 +28,11 @@ public:
     void paintIfFileLoaded(juce::Graphics&);
     void thumbnailChanged();
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
-   
+    
 
 private: 
     DrumSamplerAudioProcessor& Processor;
+    //float lengthLineX = 10.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(waveFormEditor)
 };
@@ -55,20 +56,21 @@ private:
 };
 
 
-////Main Wave Component
-//class mainWaveComponent : public juce::Component
-//{
-//public:
-//    mainWaveComponent::mainWaveComponent(DrumSamplerAudioProcessor&);
-//    mainWaveComponent::~mainWaveComponent();
-//
-//    void paint(juce::Graphics&) override;
-//    void resized() override;
-//
-//private:
-//    DrumSamplerAudioProcessor& Processor;
-//    waveFormEditor wave{ Processor };
-//    positionLine position{ Processor };
-//    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(mainWaveComponent)
-// 
-//};
+class startLine : public juce::Component
+
+{
+public:
+    startLine(DrumSamplerAudioProcessor&);
+    ~startLine() override;
+
+    void paint(juce::Graphics&) override;
+    void mouseDrag(const juce::MouseEvent& event) override;
+    float getStartPosInSec() { return newPositionInSeconds; }
+
+
+private:
+    float lengthLineX = 0.0f;
+    float newPositionInSeconds = 0;
+    DrumSamplerAudioProcessor& Processor;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(startLine)
+};

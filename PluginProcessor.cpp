@@ -8,6 +8,10 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+//#include "CustomSamplerVoice.h"#
+#define MAX_VOICES 16
+
+
 
 //==============================================================================
 DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
@@ -24,12 +28,14 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
     mAPVSTATE(*this, nullptr, "PARAMETERS", createParameters())
 #endif
 {
-    
     mFormatManager.registerBasicFormats();
     mAPVSTATE.state.addListener(this);
 
-    for (int i = 0; i < numVoices; i++) {
-        mSampler.addVoice(new juce::SamplerVoice());
+    for (int i = 0; i < MAX_VOICES; i++) {
+        //mSampler.addVoice(new juce::SamplerVoice());
+        mSampler.addVoice(new CustomSamplerVoice());
+
+
     }
 }
 
@@ -104,6 +110,7 @@ void DrumSamplerAudioProcessor::changeProgramName (int index, const juce::String
 void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     mSampler.setCurrentPlaybackSampleRate(sampleRate);
+    DBG(mSamplerate);
     updateADSR(1);
     mSamplerate = sampleRate;
     
@@ -144,17 +151,18 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-
+      
     if (mShouldUpdate) updateADSR(sampleIndex);
-
-   
-    DBG("processBlock Sample="<< sampleIndex);
-
+    
     if (mSampler.getNumVoices() > 0 && mSampler.getVoice(0)->isVoiceActive()) {
-        // Increment the sample position by the number of processed samples
         mSampleCount += buffer.getNumSamples();
+        mSampleStart = newPositionSec * mSamplerate;
+
+        if (auto* voice = dynamic_cast<CustomSamplerVoice*>(mSampler.getVoice(0)))
+            voice->setStartOffset(newPositionSec);
     }
     else {
         mSampleCount = 0;  // Reset when sample playback stops
@@ -162,12 +170,10 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     currentPositionInSeconds = mSampleCount / mSamplerate;
     
-
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
     if (mShouldUpdate) {
         gain = updateGain(sampleIndex);
-        //DBG(gain);
         buffer.applyGain(gain);
     }
     
@@ -214,20 +220,18 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 
 void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber, juce::String buttonName)
 {   
-    //mSampler.clearSounds();
-
     auto file = juce::File(path);
     auto fileName = file.getFileName();
-    int i;
+    int i = 0;
 
     mFormatReader = mFormatManager.createReaderFor(file);
-
-
+    sampleRate = mFormatReader->sampleRate;
+    totalLength = mFormatReader->lengthInSamples;
+    
     if (mFormatReader != nullptr) {
         thumbnail.setSource(new juce::FileInputSource(file));
         sampleFiles.push_back(file);
 
-        DBG(buttonName);
         if (buttonName == "myButton1") {
             sampleFiles[0] = file;
             i = 0;
@@ -239,11 +243,20 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
 
         juce::BigInteger range;
         range.setRange(noteNumber, 1, true);
-        mSampler.addSound(new juce::SamplerSound(fileName, *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0));
+        
+        // Erstelle einen CustomSamplerSound statt eines regulären SamplerSounds
+        auto* sound = new CustomSamplerSound(fileName, *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0);
+        
+        // Setze die Startposition wenn vorhanden
+        if (newPositionSec > 0) {
+            float normalizedPosition = newPositionSec / (totalLength / sampleRate);
+            sound->setStartOffset(normalizedPosition);
+        }
+        
+        mSampler.addSound(sound);
     }
 
     updateADSR(i);
-
 }
 
 void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
@@ -302,29 +315,6 @@ float DrumSamplerAudioProcessor::updateGain(int i) {
   
 }
 
-//void DrumSamplerAudioProcessor::updateADSR() {
-//
-//    mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK")->load();
-//    mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY")->load();
-//    mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN")->load();
-//    mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE")->load();
-//
-// /* mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK2")->load();
-//    mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY2")->load();
-//    mADSRparams.sustain = mAPVSTATE.getRawParameterValue("SUSTAIN2")->load();
-//    mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE2")->load();*/
-//
-//
-//    for (int i = 0; i < mSampler.getNumSounds(); ++i)
-//    {
-//        if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
-//        {
-//            //DBG(sound->getName());
-//            sound->setEnvelopeParameters(mADSRparams);
-//        }
-//    }
-//
-//}
 
 // new update ADSR per each sound
 void DrumSamplerAudioProcessor::updateADSR(int i) {
@@ -346,21 +336,13 @@ void DrumSamplerAudioProcessor::updateADSR(int i) {
 
     if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
     {
-        DBG(sound->getName());
+        //DBG(sound->getName());
         sound->setEnvelopeParameters(mADSRparams);
     }
-    
-
 }
 
-void DrumSamplerAudioProcessor::valueTreePropertyChanged (juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
+void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
 {
-    DBG("property changed: "<< property);
+    DBG("property changed: " << property);
     mShouldUpdate = true;
 }
-
-
-
-
-
-
