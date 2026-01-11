@@ -159,10 +159,6 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     
     if (mSampler.getNumVoices() > 0 && mSampler.getVoice(0)->isVoiceActive()) {
         mSampleCount += buffer.getNumSamples();
-        mSampleStart = newPositionSec * mSamplerate;
-
-        if (auto* voice = dynamic_cast<CustomSamplerVoice*>(mSampler.getVoice(0)))
-            voice->setStartOffset(newPositionSec);
     }
     else {
         mSampleCount = 0;  // Reset when sample playback stops
@@ -175,9 +171,7 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     if (mShouldUpdate) {
         gain = updateGain(sampleIndex);
         buffer.applyGain(gain);
-    }
-    
-   
+    } 
    
 }
 
@@ -244,25 +238,77 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
         juce::BigInteger range;
         range.setRange(noteNumber, 1, true);
         
-        // Erstelle einen CustomSamplerSound statt eines regulären SamplerSounds
+        // Erstelle einen CustomSamplerSound
         auto* sound = new CustomSamplerSound(fileName, *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0);
         
-        // Setze die Startposition wenn vorhanden
+        // Setze den Offset für diese MIDI-Note
         if (newPositionSec > 0) {
             float normalizedPosition = newPositionSec / (totalLength / sampleRate);
+            sampleOffsets[noteNumber] = normalizedPosition;
             sound->setStartOffset(normalizedPosition);
         }
         
         mSampler.addSound(sound);
+        updateADSR(i);
     }
 
-    updateADSR(i);
+   
 }
 
 void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
 {
-     mSampler.noteOn(1, midiNoteNumber, (juce::uint8)7);
-     samplePlayed(midiNoteNumber);
+    DBG("playFile called for note: " << midiNoteNumber);
+    DBG("newPositionSec: " << newPositionSec);
+    DBG("totalLength: " << totalLength);
+    DBG("sampleRate: " << sampleRate);
+    
+    // Update the offset before playing if needed
+    if (newPositionSec > 0)
+    {
+        DBG("Updating offset...");
+        float normalizedPosition = newPositionSec / (totalLength / (float)sampleRate);
+        // Clamp to ensure we don't start past the last sample
+        normalizedPosition = juce::jlimit(0.0f, 0.9999f, normalizedPosition);
+        DBG("normalizedPosition: " << normalizedPosition);
+        
+        // Find and update the sound for this MIDI note
+        for (int i = 0; i < mSampler.getNumSounds(); ++i)
+        {
+            if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+            {
+                // Check if this sound is mapped to our MIDI note
+                if (sound->appliesToNote(midiNoteNumber))
+                {
+                    sampleOffsets[midiNoteNumber] = normalizedPosition;
+                    sound->setStartOffset(normalizedPosition);
+                    DBG("Set offset for note " << midiNoteNumber << " to " << normalizedPosition);
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        DBG("newPositionSec is " << newPositionSec << " - resetting offset to 0");
+        // Reset offset to 0 when no position is set
+        for (int i = 0; i < mSampler.getNumSounds(); ++i)
+        {
+            if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+            {
+                if (sound->appliesToNote(midiNoteNumber))
+                {
+                    sound->setStartOffset(0.0f);
+                    DBG("Reset offset for note " << midiNoteNumber << " to 0");
+                    break;
+                }
+            }
+        }
+    }
+
+    // Now trigger the note
+    DBG("Calling noteOn for note: " << midiNoteNumber);
+    mSampler.noteOn(1, midiNoteNumber, (juce::uint8)7);
+    samplePlayed(midiNoteNumber);
 
 }
 
@@ -318,7 +364,7 @@ float DrumSamplerAudioProcessor::updateGain(int i) {
 
 // new update ADSR per each sound
 void DrumSamplerAudioProcessor::updateADSR(int i) {
-
+    DBG("Updating ADSR for sound " << i);
     if(i == 0){
         mADSRparams.attack = mAPVSTATE.getRawParameterValue("ATTACK")->load();
         mADSRparams.decay = mAPVSTATE.getRawParameterValue("DECAY")->load();
@@ -333,11 +379,15 @@ void DrumSamplerAudioProcessor::updateADSR(int i) {
         mADSRparams.release = mAPVSTATE.getRawParameterValue("RELEASE2")->load();
     }
 
-
-    if (auto sound = dynamic_cast<juce::SamplerSound*>(mSampler.getSound(i).get()))
+    // Use CustomSamplerSound instead of juce::SamplerSound
+    if (auto sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
     {
-        //DBG(sound->getName());
+        DBG("Found sound at index " << i);
         sound->setEnvelopeParameters(mADSRparams);
+    }
+    else
+    {
+        DBG("No sound found at index " << i);
     }
 }
 

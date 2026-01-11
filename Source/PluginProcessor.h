@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "CustomSamplerVoice.h"
+
 //==============================================================================
 /**
 */
@@ -80,8 +81,9 @@ public:
     int sampleRate;
     int mSampleStart=0;
 
-    //std::atomic<int> newSampleCount = 0;
-
+    void setStartOffsetForNote(int midiNoteNumber, float offset) {
+        sampleOffsets[midiNoteNumber] = juce::jlimit(0.0f, 1.0f, offset);
+    }
      
 private:
     //==============================================================================
@@ -104,5 +106,7 @@ private:
     int newSampleStart = 0;
     juce::AudioSampleBuffer fileBuffer;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
+
+    std::map<int, float> sampleOffsets;
 };
 
