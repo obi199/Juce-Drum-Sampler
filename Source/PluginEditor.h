@@ -18,6 +18,7 @@
 /**Drum Sampler Plugin
 */
 
+
 //main component//
 
 class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor

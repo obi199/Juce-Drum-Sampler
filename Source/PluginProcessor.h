@@ -12,6 +12,12 @@
 #include "CustomSamplerVoice.h"
 
 //==============================================================================
+// Configuration Constants
+static constexpr int MAX_VOICES = 16;
+static constexpr int NUM_PADS = 2;
+static constexpr int MIDI_NOTES[NUM_PADS] = { 60, 61 };
+
+//==============================================================================
 /**
 */
 class DrumSamplerAudioProcessor  : public juce::AudioProcessor, public juce::ValueTree::Listener
@@ -58,6 +64,12 @@ public:
 
     void loadFile (const juce::String& path, int noteNumber, juce::String buttonName);
     int getNumSamplerSounds() { return mSampler.getNumSounds(); }
+    
+    // Safe sample file accessors
+    juce::File getSampleFile(int padIndex) const;
+    bool hasSampleLoaded(int padIndex) const;
+    int getPadIndexFromMidiNote(int midiNote) const;
+    
     juce::AudioFormatManager mFormatManager;
     juce::AudioThumbnailCache thumbnailCache;                  
     juce::AudioThumbnail thumbnail;
@@ -72,8 +84,7 @@ public:
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     float getPosInSec() { return currentPositionInSeconds; }
     juce::int64 thumbHash;
-    juce::String initFile = "C:\initFile.wav"; //dummy file
-    std::vector<juce::File> sampleFiles = { initFile, initFile }; //init vector with Files
+    std::vector<juce::File> sampleFiles;
     int samplePlayed(int midiNote);
     float newPositionSec=0;
     int newSampleCount=0;
@@ -95,6 +106,7 @@ private:
     void valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier &property);
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
     std::atomic<bool> mShouldUpdate{ false };
+    std::atomic<int> mUpdateCount{ 0 };  // Counter for parameter updates
     std::atomic<bool> mIsNotePlayed{ false };
     std::atomic<int> mSampleCount{ false };
     int timeLinePosInSamples;

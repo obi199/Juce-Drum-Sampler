@@ -70,9 +70,14 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
     if (button == &myButton)
     {   
         audioProcessor.playFile(noteNumber);
-        if (audioProcessor.sampleFiles.size() >= 0) {
-            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.sampleFiles[0]));
+        
+        // Safely get sample file for pad 0
+        if (audioProcessor.hasSampleLoaded(0)) 
+        {
+            auto sampleFile = audioProcessor.getSampleFile(0);
+            audioProcessor.thumbnail.setSource(new juce::FileInputSource(sampleFile));
         }
+        
         // Update the slider attachment to the new parameter
         CBlock.changeSliderParameter("GAIN", "Gain");
         CBlock.changeSliderParameter("ATTACK", "Attack"); 
@@ -86,9 +91,14 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int no
     else if (button == &myButton2)
     {
         audioProcessor.playFile(noteNumber);
-        if (audioProcessor.sampleFiles.size() >= 1) {
-            audioProcessor.thumbnail.setSource(new juce::FileInputSource(audioProcessor.sampleFiles[1]));
+        
+        // Safely get sample file for pad 1
+        if (audioProcessor.hasSampleLoaded(1)) 
+        {
+            auto sampleFile = audioProcessor.getSampleFile(1);
+            audioProcessor.thumbnail.setSource(new juce::FileInputSource(sampleFile));
         }
+        
         // Update the slider attachment to the new parameter
         CBlock.changeSliderParameter("GAIN2", "Gain"); 
         CBlock.changeSliderParameter("ATTACK2", "Attack"); 
