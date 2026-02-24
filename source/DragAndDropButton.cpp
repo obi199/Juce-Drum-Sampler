@@ -30,7 +30,7 @@ bool DragAndDropButton::isInterestedInFileDrag(const juce::StringArray& files)
     return false;
 }
 
-void DragAndDropButton::filesDropped(const juce::StringArray& files, int x, int y)
+void DragAndDropButton::filesDropped(const juce::StringArray& files, int /*x*/, int /*y*/)
 {
     for (juce::File file : files)
     {
@@ -46,20 +46,53 @@ void DragAndDropButton::filesDropped(const juce::StringArray& files, int x, int 
 
 void DragAndDropButton::paint(juce::Graphics& g)
 {
+    auto bounds = getLocalBounds().toFloat().reduced(2.0f);
+    float cornerSize = 6.0f;
 
-    g.fillAll(juce::Colours::grey);
+    bool hasSound = !filename.isEmpty();
 
-    if (Processor.getNumSamplerSounds() > 0)
+    // --- MPC pad base colour ---
+    juce::Colour padColour = hasSound ? juce::Colour(0xff3a3a3a) : juce::Colours::lightgrey;
+
+    // Outer shadow (gives a sunken look)
+    g.setColour(juce::Colours::black.withAlpha(0.6f));
+    g.fillRoundedRectangle(bounds.translated(1.5f, 1.5f), cornerSize);
+
+    // Main pad body
+    g.setColour(padColour);
+    g.fillRoundedRectangle(bounds, cornerSize);
+
+    // Top-left highlight bevel
+    juce::ColourGradient highlight(juce::Colours::white.withAlpha(0.15f), bounds.getX(), bounds.getY(),
+                                   juce::Colours::transparentBlack, bounds.getX(), bounds.getBottom(), false);
+    g.setGradientFill(highlight);
+    g.fillRoundedRectangle(bounds, cornerSize);
+
+    // Subtle inner border
+    g.setColour(juce::Colours::white.withAlpha(0.08f));
+    g.drawRoundedRectangle(bounds.reduced(1.0f), cornerSize, 1.0f);
+
+    // Active indicator strip at the bottom when a sample is loaded
+    if (hasSound)
     {
-        g.fillAll(juce::Colours::red);
+        auto strip = bounds.removeFromBottom(4.0f).reduced(10.0f, 0.0f);
+        g.setColour(juce::Colour(0xffff4444));
+        g.fillRoundedRectangle(strip, 2.0f);
+    }
 
-        g.drawText(filename, getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
+    // --- Text ---
+    g.setColour(juce::Colours::white.withAlpha(0.85f));
+    g.setFont(juce::Font(12.0f));
+
+    if (hasSound)
+    {
+        g.drawText(filename, getLocalBounds().reduced(6), juce::Justification::centred, true);
     }
     else
     {
-        g.drawText("Drop here", getWidth() / 2 - 50, getHeight() / 2 - 10, 100, 20, juce::Justification::centred);
+        g.setColour(juce::Colours::darkgrey);
+        g.drawText("DROP\nSAMPLE", getLocalBounds().reduced(6), juce::Justification::centred, true);
     }
-
 }
 
 //void DragAndDropButton::setMidinote(int m) {

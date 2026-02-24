@@ -2,74 +2,66 @@
 
 #include <JuceHeader.h>
 
+/**
+    CustomSamplerSound stores the audio data and metadata for a single drum hit.
+*/
 class CustomSamplerSound : public juce::SamplerSound
 {
 public:
-    CustomSamplerSound(const juce::String& name,
-        juce::AudioFormatReader& source,
-        const juce::BigInteger& midiNotes,
-        int midiNoteForNormalPitch,
-        double attackTimeSecs,
-        double releaseTimeSecs,
-        double maxSampleLengthSeconds)
-        : SamplerSound(name, source, midiNotes, midiNoteForNormalPitch,
-            attackTimeSecs, releaseTimeSecs, maxSampleLengthSeconds),
-        startOffset(0.0f)
+    CustomSamplerSound(const juce::String& soundName,
+                       juce::AudioFormatReader& source,
+                       const juce::BigInteger& midiNoteRange,
+                       int midiNoteForNormalPitch,
+                       double attackTimeSecs,
+                       double releaseTimeSecs,
+                       double maxSampleLengthSeconds)
+        : SamplerSound(soundName, source, midiNoteRange, midiNoteForNormalPitch,
+                       attackTimeSecs, releaseTimeSecs, maxSampleLengthSeconds)
     {
-        adsrParams.attack = attackTimeSecs;
-        adsrParams.release = releaseTimeSecs;
+        adsrParams.attack = static_cast<float>(attackTimeSecs);
+        adsrParams.release = static_cast<float>(releaseTimeSecs);
     }
 
-    void setStartOffset(float newOffset) {
-        startOffset = juce::jlimit(0.0f, 1.0f, newOffset);
-    }
-
+    void setStartOffset(float newOffset) { startOffset = juce::jlimit(0.0f, 1.0f, newOffset); }
     float getStartOffset() const { return startOffset; }
 
-    void setEnvelopeParameters(const juce::ADSR::Parameters& params) {
-        adsrParams = params;
-    }
-    const juce::ADSR::Parameters& getEnvelopeParameters() const {
-        return adsrParams;
-    }
+    void setEnvelopeParameters(const juce::ADSR::Parameters& newParams) { adsrParams = newParams; }
+    const juce::ADSR::Parameters& getEnvelopeParameters() const { return adsrParams; }
 
 private:
-    float startOffset;
+    float startOffset = 0.0f;
     juce::ADSR::Parameters adsrParams;
 };
 
+/**
+    CustomSamplerVoice renders the audio for a CustomSamplerSound.
+    It handles the start offset and the ADSR envelope.
+*/
 class CustomSamplerVoice : public juce::SamplerVoice
 {
 public:
-    int currentSamplePos = 0;
-    juce::ADSR adsr;
-
     void startNote(int midiNoteNumber, float velocity,
-        juce::SynthesiserSound* s, int currentPitchWheelPosition) override
+                   juce::SynthesiserSound* s, int currentPitchWheelPosition) override
     {
-        // Call base class first to set up the sound
         juce::SamplerVoice::startNote(midiNoteNumber, velocity, s, currentPitchWheelPosition);
-        
-        // Reset and set positions AFTER base class initialization
         currentSamplePos = 0;
-        
+
         if (auto* sound = dynamic_cast<CustomSamplerSound*>(s))
         {
-            // Set the starting position based on offset
             float offset = sound->getStartOffset();
             if (auto* data = sound->getAudioData())
             {
                 auto numSamples = data->getNumSamples();
-                currentSamplePos = static_cast<int>(offset * numSamples);
+                currentSamplePos = static_cast<int>(offset * static_cast<float>(numSamples));
             }
-            
+
             adsr.setSampleRate(getSampleRate());
             adsr.setParameters(sound->getEnvelopeParameters());
             adsr.noteOn();
         }
     }
 
-    void stopNote(float velocity, bool allowTailOff) override
+    void stopNote(float /*velocity*/, bool allowTailOff) override
     {
         if (allowTailOff)
             adsr.noteOff();
@@ -109,4 +101,10 @@ public:
             }
         }
     }
+
+    void renderNextBlock(juce::AudioBuffer<double>&, int, int) override {}
+
+private:
+    int currentSamplePos = 0;
+    juce::ADSR adsr;
 };

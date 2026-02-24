@@ -136,8 +136,49 @@ void startLine::mouseDrag(const juce::MouseEvent& event)
     newPositionInSeconds = (lengthLineX / (float)getWidth()) * audioLength;
     DBG("newPositionInSeconds=" << newPositionInSeconds);
     Processor.newPositionSec = newPositionInSeconds;
+
+    // Persist normalized offset immediately to APVTS for the current pad
+    float ratio = 0.0f;
+    if (audioLength > 0.0f)
+        ratio = juce::jlimit(0.0f, 0.9999f, newPositionInSeconds / audioLength);
+
+    int currentPad = Processor.getCurrentPadIndex();
+    if (currentPad >= 0 && currentPad < NUM_PADS)
+    {
+        Processor.setStartOffsetForNote(MIDI_NOTES[currentPad], ratio);
+    }
+
     //Optionally, update the sample length based on the new position
    //updateSampleLength();
+    repaint();
+}
+
+void startLine::setPosition(float positionInSeconds)
+{
+    newPositionInSeconds = positionInSeconds;
+    auto audioLength = (float)Processor.thumbnail.getTotalLength();
+    if (audioLength > 0.0f)
+        lengthLineX = (newPositionInSeconds / audioLength) * (float)getWidth();
+    else
+        lengthLineX = 0.0f;
+
+    Processor.newPositionSec = newPositionInSeconds;
+    repaint();
+}
+
+void startLine::setNormalizedOffset(float offsetRatio01)
+{
+    // Clamp ratio to [0,1]
+    float r = juce::jlimit(0.0f, 1.0f, offsetRatio01);
+    // Set visual immediately based on component width (no need for audio length here)
+    lengthLineX = r * (float)getWidth();
+
+    // Update processor seconds if we know audio length; otherwise leave as is
+    auto audioLength = (float)Processor.thumbnail.getTotalLength();
+    if (audioLength > 0.0f)
+        newPositionInSeconds = r * audioLength;
+    Processor.newPositionSec = newPositionInSeconds;
+
     repaint();
 }
 

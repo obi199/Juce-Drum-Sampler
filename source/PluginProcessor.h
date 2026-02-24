@@ -12,10 +12,22 @@
 #include "CustomSamplerVoice.h"
 
 //==============================================================================
+// DrumPad structure to hold state for each pad
+//==============================================================================
+struct DrumPad
+{
+    juce::File sampleFile;
+    int midiNote = 0;
+    juce::ADSR::Parameters adsr;
+    float gain = 0.2f;
+    float startOffset = 0.0f;
+};
+
+//==============================================================================
 // Configuration Constants
 static constexpr int MAX_VOICES = 16;
-static constexpr int NUM_PADS = 2;
-static constexpr int MIDI_NOTES[NUM_PADS] = { 60, 61 };
+static constexpr int NUM_PADS = 16;
+static constexpr int MIDI_NOTES[NUM_PADS] = { 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75 };
 
 //==============================================================================
 /**
@@ -37,6 +49,7 @@ public:
    #endif
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock (juce::AudioBuffer<double>&, juce::MidiBuffer&) override {}
 
     //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
@@ -65,60 +78,59 @@ public:
     void loadFile (const juce::String& path, int noteNumber, juce::String buttonName);
     int getNumSamplerSounds() { return mSampler.getNumSounds(); }
     
-    // Safe sample file accessors
-    juce::File getSampleFile(int padIndex) const;
-    bool hasSampleLoaded(int padIndex) const;
+    // Pad management
+    juce::File getSampleFile(int padIndex) const { return pads[static_cast<size_t>(padIndex)].sampleFile; }
+    bool hasSampleLoaded(int padIndex) const { return pads[static_cast<size_t>(padIndex)].sampleFile.existsAsFile(); }
     int getPadIndexFromMidiNote(int midiNote) const;
     
     juce::AudioFormatManager mFormatManager;
     juce::AudioThumbnailCache thumbnailCache;                  
     juce::AudioThumbnail thumbnail;
     juce::AudioFormatReader* mFormatReader{ nullptr };
+    
     void playFile(int);
-    float updateGain(int);
-    void getValue();
     void updateADSR(int);
-    juce::ADSR::Parameters& getADSRparams() { return mADSRparams; }
+    float updateGain(int);
+    
+    juce::ADSR::Parameters& getADSRparams() { return pads[static_cast<size_t>(sampleIndex)].adsr; }
     juce::AudioProcessorValueTreeState& getAPVTS() { return mAPVSTATE; }
+    
     std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     float getPosInSec() { return currentPositionInSeconds; }
+    int getCurrentPadIndex() const { return sampleIndex; }
+    
     juce::int64 thumbHash;
-    std::vector<juce::File> sampleFiles;
     int samplePlayed(int midiNote);
-    float newPositionSec=0;
-    int newSampleCount=0;
+    float newPositionSec = 0;
+    int newSampleCount = 0;
     int totalLength;
-    int sampleRate;
-    int mSampleStart=0;
+    int mSampleRateInt;
+    int mSampleStart = 0;
 
-    void setStartOffsetForNote(int midiNoteNumber, float offset) {
-        sampleOffsets[midiNoteNumber] = juce::jlimit(0.0f, 1.0f, offset);
-    }
+    void setStartOffsetForNote(int midiNoteNumber, float offset);
+    float getStartOffsetForNote(int midiNoteNumber) const;
      
 private:
     //==============================================================================
     juce::Synthesiser mSampler;
-    const int numVoices{ 3 };
-    juce::AudioBuffer<float> mWaveForm;
-    juce::ADSR::Parameters mADSRparams;
+    std::array<DrumPad, NUM_PADS> pads;
+    
     juce::AudioProcessorValueTreeState mAPVSTATE;
-    void valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier &property);
+    
+    void valueTreePropertyChanged(juce::ValueTree&, const juce::Identifier&) override;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+    
     std::atomic<bool> mShouldUpdate{ false };
-    std::atomic<int> mUpdateCount{ 0 };  // Counter for parameter updates
+    std::atomic<int> mUpdateCount{ 0 };
     std::atomic<bool> mIsNotePlayed{ false };
-    std::atomic<int> mSampleCount{ false };
-    int timeLinePosInSamples;
-    float currentPositionInSeconds=0;
+    std::atomic<int> mSampleCount{ 0 };
+    
+    float currentPositionInSeconds = 0;
     double mSamplerate = 48000.0;
-    float duration;
-    int sampleIndex;
-    float gain;
-    int newSampleStart = 0;
-    juce::AudioSampleBuffer fileBuffer;
+    int sampleIndex = 0;
+    float currentGain = 0.2f;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
-
-    std::map<int, float> sampleOffsets;
 };
 

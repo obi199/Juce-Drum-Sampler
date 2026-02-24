@@ -20,7 +20,7 @@
 class sliderController : public juce::Slider
 {
 public:
-    sliderController::sliderController(juce::String);
+    sliderController(juce::String);
     ~sliderController() override;
     void attachLabel(Component*, bool);
 
@@ -35,7 +35,7 @@ private:
 class controlSlidersBlock : public juce::Component
 {
 public:
-    controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor&);
+    controlSlidersBlock(DrumSamplerAudioProcessor&);
     //~controlSlidersBlock() override;
   
     void resized() override;

@@ -20,13 +20,13 @@
 class DragAndDropButton : public juce::TextButton, public juce::FileDragAndDropTarget
 {
 public:
-    DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor&, int m, juce::String name); //insert midi notes for 2nd pad
+    DragAndDropButton(DrumSamplerAudioProcessor&, int m, juce::String name); //insert midi notes for 2nd pad
     ~DragAndDropButton() override;
     void paint(juce::Graphics&) override;
 
-    bool FileDragAndDropTarget::isInterestedInFileDrag(const juce::StringArray&);
+    bool isInterestedInFileDrag(const juce::StringArray&) override;
 
-    void FileDragAndDropTarget::filesDropped(const juce::StringArray&, int, int);
+    void filesDropped(const juce::StringArray&, int, int) override;
 
     //void DragAndDropButton::setMidinote(int m);
 

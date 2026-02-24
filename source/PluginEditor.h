@@ -10,7 +10,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "WaveFormEditor.h"
+#include "waveFormEditor.h"
 #include "DragAndDropButton.h"
 #include "sliderController.h"
 
@@ -22,8 +22,6 @@
 //main component//
 
 class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor
-    
-    
 {
 public:
     DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor&);
@@ -33,16 +31,15 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    void ButtonClicked(juce::Button* button, int noteNumber);    
+    void ButtonClicked(juce::Button* button, int noteNumber);
     juce::File audioFile;
 
-   
-   
 private:
-
     DrumSamplerAudioProcessor& audioProcessor;
-    DragAndDropButton myButton { audioProcessor, 60, "myButton1" };
-    DragAndDropButton myButton2{ audioProcessor, 61, "myButton2" };
+
+    // 16 pad buttons created dynamically
+    std::vector<std::unique_ptr<DragAndDropButton>> padButtons;
+
     controlSlidersBlock CBlock{ audioProcessor };
     waveFormEditor waveComponent{ audioProcessor };
     positionLine position{ audioProcessor };

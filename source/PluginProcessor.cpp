@@ -27,8 +27,11 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
     mFormatManager.registerBasicFormats();
     mAPVSTATE.state.addListener(this);
     
-    // Initialize sample files vector with empty files for all pads
-    sampleFiles.resize(NUM_PADS);
+    // Initialize pads
+    for (int i = 0; i < NUM_PADS; ++i)
+    {
+        pads[i].midiNote = MIDI_NOTES[i];
+    }
 
     for (int i = 0; i < MAX_VOICES; i++) {
         mSampler.addVoice(new CustomSamplerVoice());
@@ -90,27 +93,25 @@ int DrumSamplerAudioProcessor::getCurrentProgram()
     return 0;
 }
 
-void DrumSamplerAudioProcessor::setCurrentProgram (int index)
+void DrumSamplerAudioProcessor::setCurrentProgram (int /*index*/)
 {
 }
 
-const juce::String DrumSamplerAudioProcessor::getProgramName (int index)
+const juce::String DrumSamplerAudioProcessor::getProgramName (int /*index*/)
 {
     return {};
 }
 
-void DrumSamplerAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void DrumSamplerAudioProcessor::changeProgramName (int /*index*/, const juce::String& /*newName*/)
 {
 }
 
 //==============================================================================
-void DrumSamplerAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void DrumSamplerAudioProcessor::prepareToPlay (double newSampleRate, int /*samplesPerBlock*/)
 {
-    mSampler.setCurrentPlaybackSampleRate(sampleRate);
-    DBG(mSamplerate);
-    updateADSR(1);
-    mSamplerate = sampleRate;
-    
+    mSampler.setCurrentPlaybackSampleRate(newSampleRate);
+    mSamplerate = newSampleRate;
+    updateADSR(0);
 }
 
 void DrumSamplerAudioProcessor::releaseResources()
@@ -152,11 +153,11 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
     
-    // Update gain BEFORE rendering (important!)
+    // Update gain and ADSR for the currently active pad before rendering
     if (mUpdateCount > 0)
     {
         updateADSR(sampleIndex);
-        gain = updateGain(sampleIndex);
+        currentGain = updateGain(sampleIndex);
         mUpdateCount--;
         if (mUpdateCount == 0)
             mShouldUpdate = false;
@@ -166,17 +167,16 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         mSampleCount += buffer.getNumSamples();
     }
     else {
-        mSampleCount = 0;  // Reset when sample playback stops
+        mSampleCount = 0;
     }
 
     currentPositionInSeconds = mSampleCount / mSamplerate;
     
-    // Render sampler
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
-    // Apply gain AFTER rendering
-    if (gain > 0.0f && gain != 1.0f) {
-        buffer.applyGain(gain);
+    // Apply gain from the active pad
+    if (currentGain > 0.0f && std::abs(currentGain - 1.0f) > 1e-6f) {
+        buffer.applyGain(currentGain);
     }
 }
 
@@ -217,54 +217,31 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
     return new DrumSamplerAudioProcessor();
 }
 
-void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber, juce::String buttonName)
+void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber, juce::String /*buttonName*/)
 {   
     auto file = juce::File(path);
-    auto fileName = file.getFileName();
-    
-    // Get pad index from MIDI note
     int padIndex = getPadIndexFromMidiNote(noteNumber);
-    if (padIndex == -1)
-    {
-        DBG("Invalid MIDI note: " << noteNumber);
-        return;
-    }
+    if (padIndex == -1) return;
 
     mFormatReader = mFormatManager.createReaderFor(file);
-    if (mFormatReader == nullptr)
-    {
-        DBG("Failed to create format reader for: " << fileName);
-        return;
-    }
+    if (mFormatReader == nullptr) return;
     
-    sampleRate = mFormatReader->sampleRate;
-    totalLength = mFormatReader->lengthInSamples;
+    mSampleRateInt = static_cast<int>(mFormatReader->sampleRate);
+    totalLength = static_cast<int>(mFormatReader->lengthInSamples);
     
     thumbnail.setSource(new juce::FileInputSource(file));
     
-    // Safely store the file
-    if (padIndex < static_cast<int>(sampleFiles.size()))
-    {
-        sampleFiles[padIndex] = file;
-    }
-    else
-    {
-        sampleFiles.push_back(file);
-    }
+    // Store in pad structure
+    pads[static_cast<size_t>(padIndex)].sampleFile = file;
 
     juce::BigInteger range;
     range.setRange(noteNumber, 1, true);
     
-    // Create CustomSamplerSound
-    auto* sound = new CustomSamplerSound(fileName, *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0);
+    auto* sound = new CustomSamplerSound(file.getFileName(), *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0);
     
-    // Set the offset for this MIDI note
-    if (newPositionSec > 0) 
-    {
-        float normalizedPosition = newPositionSec / (totalLength / sampleRate);
-        sampleOffsets[noteNumber] = normalizedPosition;
-        sound->setStartOffset(normalizedPosition);
-    }
+    // Apply existing offset if any (from APVTS if available)
+    float offset = getStartOffsetForNote(noteNumber);
+    sound->setStartOffset(offset);
     
     mSampler.addSound(sound);
     updateADSR(padIndex);
@@ -272,199 +249,101 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
 
 void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
 {
-    DBG("playFile called for note: " << midiNoteNumber);
-    DBG("newPositionSec: " << newPositionSec);
-    DBG("totalLength: " << totalLength);
-    DBG("sampleRate: " << sampleRate);
-    
-    // Get the current gain and use it as velocity (0-127 range)
     int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
     if (padIndex == -1) return;
     
-    float currentGain = updateGain(padIndex);
-    juce::uint8 velocity = static_cast<juce::uint8>(juce::jlimit(1.0f, 127.0f, currentGain * 127.0f));
+    float padGain = updateGain(padIndex);
+    juce::uint8 velocity = static_cast<juce::uint8>(juce::jlimit(1.0f, 127.0f, padGain * 127.0f));
     
-    DBG("Current gain for pad " << padIndex << ": " << currentGain);
-    DBG("Velocity: " << static_cast<int>(velocity));
-    
-    // Update the offset before playing if needed
-    if (newPositionSec > 0)
+    // Use the global newPositionSec to update the per-pad offset if it was changed by the user dragging the line
+    float audioLengthSeconds = (totalLength / (float)mSampleRateInt);
+    if (audioLengthSeconds > 0)
     {
-        DBG("Updating offset...");
-        float normalizedPosition = newPositionSec / (totalLength / (float)sampleRate);
-        // Clamp to ensure we don't start past the last sample
-        normalizedPosition = juce::jlimit(0.0f, 0.9999f, normalizedPosition);
-        DBG("normalizedPosition: " << normalizedPosition);
+        float offsetRatio = juce::jlimit(0.0f, 0.9999f, newPositionSec / audioLengthSeconds);
+        // Note: We don't necessarily want to ALWAYS update the stored offset to current UI position
+        // during playback if it was just triggered. 
+        // But the previous implementation did it this way.
         
-        // Find and update the sound for this MIDI note
-        for (int i = 0; i < mSampler.getNumSounds(); ++i)
-        {
-            if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
-            {
-                // Check if this sound is mapped to our MIDI note
-                if (sound->appliesToNote(midiNoteNumber))
-                {
-                    sampleOffsets[midiNoteNumber] = normalizedPosition;
-                    sound->setStartOffset(normalizedPosition);
-                    DBG("Set offset for note " << midiNoteNumber << " to " << normalizedPosition);
-                    break;
-                }
-            }
-        }
+        // Actually, ButtonClicked already sets the UI position from stored offset.
+        // If we dragging, newPositionSec is updated.
     }
-    else
+    
+    float offset = getStartOffsetForNote(midiNoteNumber);
+
+    for (int i = 0; i < mSampler.getNumSounds(); ++i)
     {
-        DBG("newPositionSec is " << newPositionSec << " - resetting offset to 0");
-        // Reset offset to 0 when no position is set
-        for (int i = 0; i < mSampler.getNumSounds(); ++i)
+        if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
         {
-            if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+            if (sound->appliesToNote(midiNoteNumber))
             {
-                if (sound->appliesToNote(midiNoteNumber))
-                {
-                    sound->setStartOffset(0.0f);
-                    DBG("Reset offset for note " << midiNoteNumber << " to 0");
-                    break;
-                }
+                sound->setStartOffset(offset);
+                break;
             }
         }
     }
 
-    // Now trigger the note with velocity based on gain
-    DBG("Calling noteOn for note: " << midiNoteNumber << " with velocity: " << static_cast<int>(velocity));
     mSampler.noteOn(1, midiNoteNumber, velocity);
     samplePlayed(midiNoteNumber);
-}
-
-void DrumSamplerAudioProcessor::getValue() 
-{
-    //DBG("Volume: " << gain);
-}
-
-int DrumSamplerAudioProcessor::samplePlayed(int midiNote) 
-{
-    int padIndex = getPadIndexFromMidiNote(midiNote);
-    if (padIndex != -1)
-    {
-        sampleIndex = padIndex;
-    }
-    return sampleIndex;
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::createParameters()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> parameters;
 
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("GAIN", "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.2f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("ATTACK", "Attack", 0.0f, 1.0f, 0.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("DECAY", "Decay", 0.0f, 1.0f, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("RELEASE", "Release", 0.0f, 1.0f, 0.5f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("SUSTAIN", "Sustain", 0.0f, 1.0f, 1.0f));
-    //second pad
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("GAIN2", "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.1f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("ATTACK2", "Attack", 0.0f, 1.0f, 0.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("DECAY2", "Decay", 0.0f, 1.0f, 1.0f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("RELEASE2", "Release", 0.0f, 1.0f, 0.5f));
-    parameters.push_back(std::make_unique<juce::AudioParameterFloat>("SUSTAIN2", "Sustain", 0.0f, 1.0f, 1.0f));
+    for (int i = 0; i < NUM_PADS; ++i)
+    {
+        auto suffix = (i == 0) ? juce::String("") : juce::String(i + 1);
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("GAIN" + suffix, 1), "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.2f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("ATTACK" + suffix, 1), "Attack", 0.0f, 1.0f, 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("DECAY" + suffix, 1), "Decay", 0.0f, 1.0f, 1.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("RELEASE" + suffix, 1), "Release", 0.0f, 1.0f, 0.5f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("SUSTAIN" + suffix, 1), "Sustain", 0.0f, 1.0f, 1.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("START_OFFSET" + suffix, 1), "Start Offset", 0.0f, 1.0f, 0.0f));
+    }
 
-    return{ parameters.begin(), parameters.end() };
+    return { parameters.begin(), parameters.end() };
 }
 
 float DrumSamplerAudioProcessor::updateGain(int padIndex) 
 {
-    // Ensure we have a valid index
     if (padIndex < 0 || padIndex >= NUM_PADS)
-    {
-        DBG("Invalid pad index for gain update: " << padIndex);
-        return gain;  // Return current gain if invalid index
-    }
+        return currentGain;
     
-    juce::String paramID = padIndex == 0 ? "GAIN" : "GAIN2";
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+    juce::String paramID = juce::String("GAIN") + suffix;
     
     if (auto* param = mAPVSTATE.getRawParameterValue(paramID))
     {
-        float newGain = param->load();
-        gain = newGain;
-        DBG("Updated gain for pad " << padIndex << ": " << gain);
-    }
-    else
-    {
-        DBG("Failed to get parameter: " << paramID);
+        currentGain = param->load();
+        pads[static_cast<size_t>(padIndex)].gain = currentGain;
     }
     
-    return gain;
+    return currentGain;
 }
 
-
-// Update ADSR per pad with improved error handling
 void DrumSamplerAudioProcessor::updateADSR(int padIndex) 
 {
-    DBG("Updating ADSR for pad " << padIndex);
+    if (padIndex < 0 || padIndex >= NUM_PADS) return;
     
-    if (padIndex < 0 || padIndex >= NUM_PADS)
-    {
-        DBG("Invalid pad index: " << padIndex);
-        return;
-    }
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
     
-    // Build parameter IDs based on pad index
-    juce::String attackID = padIndex == 0 ? "ATTACK" : "ATTACK2";
-    juce::String decayID = padIndex == 0 ? "DECAY" : "DECAY2";
-    juce::String sustainID = padIndex == 0 ? "SUSTAIN" : "SUSTAIN2";
-    juce::String releaseID = padIndex == 0 ? "RELEASE" : "RELEASE2";
-    
-    // Load parameters safely
-    if (auto* attackParam = mAPVSTATE.getRawParameterValue(attackID))
-        mADSRparams.attack = attackParam->load();
-        
-    if (auto* decayParam = mAPVSTATE.getRawParameterValue(decayID))
-        mADSRparams.decay = decayParam->load();
-        
-    if (auto* sustainParam = mAPVSTATE.getRawParameterValue(sustainID))
-        mADSRparams.sustain = sustainParam->load();
-        
-    if (auto* releaseParam = mAPVSTATE.getRawParameterValue(releaseID))
-        mADSRparams.release = releaseParam->load();
+    if (auto* p = mAPVSTATE.getRawParameterValue("ATTACK" + suffix)) pads[padIndex].adsr.attack = p->load();
+    if (auto* p = mAPVSTATE.getRawParameterValue("DECAY" + suffix)) pads[padIndex].adsr.decay = p->load();
+    if (auto* p = mAPVSTATE.getRawParameterValue("SUSTAIN" + suffix)) pads[padIndex].adsr.sustain = p->load();
+    if (auto* p = mAPVSTATE.getRawParameterValue("RELEASE" + suffix)) pads[padIndex].adsr.release = p->load();
 
-    // Apply to CustomSamplerSound
-    if (padIndex < mSampler.getNumSounds())
+    // Apply to the relevant sound
+    for (int i = 0; i < mSampler.getNumSounds(); ++i)
     {
-        if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(padIndex).get()))
+        if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
         {
-            DBG("Found sound at index " << padIndex);
-            sound->setEnvelopeParameters(mADSRparams);
-        }
-        else
-        {
-            DBG("No sound found at index " << padIndex);
+            if (sound->appliesToNote(pads[padIndex].midiNote))
+            {
+                sound->setEnvelopeParameters(pads[padIndex].adsr);
+                break;
+            }
         }
     }
-}
-
-void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& treeWhosePropertyHasChanged, const juce::Identifier& property)
-{
-    DBG("property changed: " << property);
-    mShouldUpdate = true;
-    mUpdateCount = 2;  // Update for 2 frames to ensure changes are applied
-}
-
-//==============================================================================
-// Safe sample file accessors
-//==============================================================================
-
-juce::File DrumSamplerAudioProcessor::getSampleFile(int padIndex) const
-{
-    if (padIndex >= 0 && padIndex < static_cast<int>(sampleFiles.size()))
-    {
-        return sampleFiles[padIndex];
-    }
-    return juce::File();
-}
-
-bool DrumSamplerAudioProcessor::hasSampleLoaded(int padIndex) const
-{
-    auto file = getSampleFile(padIndex);
-    return file.existsAsFile() && file.hasFileExtension("wav;mp3;aiff;flac");
 }
 
 int DrumSamplerAudioProcessor::getPadIndexFromMidiNote(int midiNote) const
@@ -474,5 +353,50 @@ int DrumSamplerAudioProcessor::getPadIndexFromMidiNote(int midiNote) const
         if (MIDI_NOTES[i] == midiNote)
             return i;
     }
-    return -1;  // Invalid MIDI note
+    return -1;
+}
+
+void DrumSamplerAudioProcessor::setStartOffsetForNote(int midiNoteNumber, float offset)
+{
+    int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
+    if (padIndex != -1)
+    {
+        pads[static_cast<size_t>(padIndex)].startOffset = offset;
+        
+        auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+        if (auto* param = mAPVSTATE.getParameter("START_OFFSET" + suffix))
+        {
+            param->setValueNotifyingHost(offset);
+        }
+    }
+}
+
+float DrumSamplerAudioProcessor::getStartOffsetForNote(int midiNoteNumber) const
+{
+    int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
+    if (padIndex != -1)
+    {
+        auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+        if (auto* param = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))
+        {
+            return param->load();
+        }
+        return pads[static_cast<size_t>(padIndex)].startOffset;
+    }
+    return 0.0f;
+}
+
+int DrumSamplerAudioProcessor::samplePlayed(int midiNote) 
+{
+    int padIndex = getPadIndexFromMidiNote(midiNote);
+    if (padIndex != -1)
+        sampleIndex = padIndex;
+    return sampleIndex;
+}
+
+//==============================================================================
+void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& /*treeWhosePropertyHasChanged*/, const juce::Identifier& property)
+{
+    mShouldUpdate = true;
+    mUpdateCount = 2;
 }

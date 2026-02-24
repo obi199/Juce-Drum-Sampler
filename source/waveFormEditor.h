@@ -21,7 +21,7 @@
 class waveFormEditor : public juce::Component, private juce::ChangeListener
 {
 public:
-    waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor&);
+    waveFormEditor(DrumSamplerAudioProcessor&);
     ~waveFormEditor() override;
     void paint(juce::Graphics&) override;
     void paintIfNoFileLoaded(juce::Graphics&);
@@ -66,6 +66,8 @@ public:
     void paint(juce::Graphics&) override;
     void mouseDrag(const juce::MouseEvent& event) override;
     float getStartPosInSec() { return newPositionInSeconds; }
+    void setPosition(float positionInSeconds);
+    void setNormalizedOffset(float offsetRatio01);
 
 
 private:

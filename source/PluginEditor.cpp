@@ -14,26 +14,41 @@
 DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor& p)
     : AudioProcessorEditor (&p), waveComponent(p), audioProcessor(p) {
 
-    setSize (800, 400);
-    myButton.setButtonText("myButton1");
-    addAndMakeVisible(&myButton);
-    myButton2.setButtonText("myButton2");
-    addAndMakeVisible(&myButton2);
-    myButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
-    //myButton.setMidinote(60);
-    myButton.onClick = [this] {ButtonClicked(&myButton, 60); };
-
-    //myButton2.setMidinote(61);
-    myButton2.onClick = [this] {ButtonClicked(&myButton2, 61); };
-   
     addAndMakeVisible(&CBlock);
     addAndMakeVisible(&waveComponent);
     addAndMakeVisible(&position);
     addAndMakeVisible(&start);
 
-    //position.toBack(); //in back not visible
+    // Create 16 pads dynamically
+    padButtons.reserve(NUM_PADS);
+    for (int i = 0; i < NUM_PADS; ++i)
+    {
+        auto name = juce::String("Pad ") + juce::String(i + 1);
+        auto midiNote = MIDI_NOTES[i];
+        auto btn = std::make_unique<DragAndDropButton>(audioProcessor, midiNote, name);
+        btn->setButtonText(name);
 
-    
+        auto* btnPtr = btn.get();
+        btn->onClick = [this, btnPtr, midiNote]() { ButtonClicked(btnPtr, midiNote); };
+
+        addAndMakeVisible(btnPtr);
+        padButtons.push_back(std::move(btn));
+        
+        DBG("Created and added pad " << i << " with midiNote " << midiNote);
+    }
+   
+    // Compute editor height to closely match the drum grid height
+    const int initialWidth = 900;
+    const int leftMarginCalc = 10;
+    const int topMarginCalc = 10;
+    const int colsCalc = 4;
+    const int padGapCalc = 6;
+    const int leftWidthCalc = initialWidth / 2;
+    const int padSizeCalc = (leftWidthCalc - leftMarginCalc - (padGapCalc * colsCalc)) / colsCalc;
+    const int rowsCalc = 4;
+    const int gridHeight = topMarginCalc + rowsCalc * padSizeCalc + (rowsCalc - 1) * padGapCalc + topMarginCalc; // add bottom margin equal to top
+    const int extra = 8; // a little bigger so the grid fits nicely
+    setSize (initialWidth, gridHeight + extra);
 }
 
 DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
@@ -44,71 +59,81 @@ DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
 //==============================================================================
 void DrumSamplerAudioProcessorEditor::paint (juce::Graphics& g)
 {
-
+    g.fillAll(juce::Colours::black);
 }
 
 void DrumSamplerAudioProcessorEditor::resized()
 {
+    // Layout: 4x4 grid of pads on the left half; controls + waveform on right
+    int leftMargin = 10;
+    int topMargin = 10;
+    int cols = 4;
+    int padGap = 6;
 
-    myButton.setBounds(10, getHeight()-80, 70, 70);
-    myButton2.setBounds(90, getHeight() - 80, 70, 70);
-    CBlock.setBounds((getWidth() / 2), (getHeight() / 2), (getWidth() / 2)-50, 150);
+    int leftWidth = getWidth() / 2;
+    int padSize = (leftWidth - leftMargin - (padGap * cols)) / cols;
 
-    //wave thumbnail
-    juce::Rectangle<int> thumbnailBounds ((getWidth() / 2), 10, getWidth()/2 - 50, getHeight()/2 - 20);
+    for (int i = 0; i < static_cast<int>(padButtons.size()); ++i)
+    {
+        int row = i / cols;
+        int col = i % cols;
+        int x = leftMargin + col * (padSize + padGap);
+        int y = topMargin + row * (padSize + padGap);
+        padButtons[i]->setBounds(x, y, padSize, padSize);
+    }
+
+    // Right side layout
+    int rightX = leftWidth;
+    int rightWidth = getWidth() - rightX - 10; // 10px right margin
+    int totalHeight = getHeight();
+
+    // Waveform at the top right
+    int waveHeight = (totalHeight / 2) - 15;
+    juce::Rectangle<int> thumbnailBounds (rightX, 10, rightWidth, waveHeight);
     waveComponent.setBounds(thumbnailBounds);
     position.setBounds(thumbnailBounds);
-    //start.setBounds((getWidth() / 2)-50, 10, getWidth() / 2 - 50, getHeight() / 2 - 20);
     start.setBounds(thumbnailBounds);
 
-   
+    // Controls below the waveform
+    int controlsY = thumbnailBounds.getBottom() + 10;
+    int controlsHeight = totalHeight - controlsY - 10;
+    CBlock.setBounds(rightX, controlsY, rightWidth, controlsHeight);
 }
 
-void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* button, int noteNumber)
-
+void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, int noteNumber)
 {
-    if (button == &myButton)
-    {   
-        audioProcessor.playFile(noteNumber);
-        
-        // Safely get sample file for pad 0
-        if (audioProcessor.hasSampleLoaded(0)) 
-        {
-            auto sampleFile = audioProcessor.getSampleFile(0);
-            audioProcessor.thumbnail.setSource(new juce::FileInputSource(sampleFile));
-        }
-        
-        // Update the slider attachment to the new parameter
-        CBlock.changeSliderParameter("GAIN", "Gain");
-        CBlock.changeSliderParameter("ATTACK", "Attack"); 
-        CBlock.changeSliderParameter("DECAY", "Decay");
-        CBlock.changeSliderParameter("RELEASE", "Release");
-        CBlock.changeSliderParameter("SUSTAIN", "Sustain");
-        audioProcessor.updateADSR(0);
+    // Determine pad index from MIDI note
+    int padIndex = audioProcessor.getPadIndexFromMidiNote(noteNumber);
+    if (padIndex < 0)
+        return;
 
-    }
-
-    else if (button == &myButton2)
+    // If the pad has a sample, point the thumbnail to it first so we know its length
+    if (audioProcessor.hasSampleLoaded(padIndex))
     {
-        audioProcessor.playFile(noteNumber);
-        
-        // Safely get sample file for pad 1
-        if (audioProcessor.hasSampleLoaded(1)) 
-        {
-            auto sampleFile = audioProcessor.getSampleFile(1);
-            audioProcessor.thumbnail.setSource(new juce::FileInputSource(sampleFile));
-        }
-        
-        // Update the slider attachment to the new parameter
-        CBlock.changeSliderParameter("GAIN2", "Gain"); 
-        CBlock.changeSliderParameter("ATTACK2", "Attack"); 
-        CBlock.changeSliderParameter("DECAY2", "Decay");
-        CBlock.changeSliderParameter("RELEASE2", "Release");
-        CBlock.changeSliderParameter("SUSTAIN2", "Sustain");
-        
-        audioProcessor.updateADSR(1);
-
+        auto sampleFile = audioProcessor.getSampleFile(padIndex);
+        audioProcessor.thumbnail.setSource(new juce::FileInputSource(sampleFile));
     }
+
+    // Reset the draggable start line and processor's newPositionSec to the pad's stored offset
+    // Do this BEFORE calling playFile so playback uses the correct offset.
+    float offset = audioProcessor.getStartOffsetForNote(noteNumber);
+    // Set visual position immediately using normalized offset to avoid 0-length thumbnail race
+    start.setNormalizedOffset(offset);
+
+    audioProcessor.playFile(noteNumber);
+
+    // Build parameter suffix for this pad ("" for pad 0, "2".."16" for others)
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+
+    // Update the slider attachment to the new pad's parameters
+    CBlock.changeSliderParameter("GAIN" + suffix, "Gain");
+    CBlock.changeSliderParameter("ATTACK" + suffix, "Attack");
+    CBlock.changeSliderParameter("DECAY" + suffix, "Decay");
+    CBlock.changeSliderParameter("RELEASE" + suffix, "Release");
+    CBlock.changeSliderParameter("SUSTAIN" + suffix, "Sustain");
+    CBlock.changeSliderParameter("START_OFFSET" + suffix, "StartOffset");
+
+    audioProcessor.updateADSR(padIndex);
 }
 
 

@@ -67,21 +67,22 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
 
 void controlSlidersBlock::resized() {
 
-    const auto x = 0;
-    const auto y = (getHeight() / 2);
     const auto sWidth = 70;
     const auto sHeight = 70;
+    const auto y = (getHeight() - sHeight) / 2;
+    const auto gap = (getWidth() - (sWidth * 5)) / 6;
 
-    GainSlider.setBounds(x, y, sWidth, sHeight);
-    AttackSlider.setBounds(x + sWidth, (getHeight() / 2), sWidth, sHeight);
-    DecaySlider.setBounds(x + sWidth * 2, (getHeight() / 2), sWidth, sHeight);
-    SustainSlider.setBounds(x + sWidth * 3, (getHeight() / 2), sWidth, sHeight);
-    ReleaseSlider.setBounds(x + sWidth * 4, (getHeight() / 2), sWidth, sHeight);
+    GainSlider.setBounds(gap, y, sWidth, sHeight);
+    AttackSlider.setBounds(gap * 2 + sWidth, y, sWidth, sHeight);
+    DecaySlider.setBounds(gap * 3 + sWidth * 2, y, sWidth, sHeight);
+    SustainSlider.setBounds(gap * 4 + sWidth * 3, y, sWidth, sHeight);
+    ReleaseSlider.setBounds(gap * 5 + sWidth * 4, y, sWidth, sHeight);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::grey);
+    // No fillAll here, it might cover other components if the parent doesn't set bounds correctly
+    // or if this component is larger than expected.
 }
 
 void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID, juce::String sliderName) {
