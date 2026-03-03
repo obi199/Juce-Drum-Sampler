@@ -63,6 +63,11 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     mSustainAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "SUSTAIN", SustainSlider);
     SustainSlider.attachLabel(&SustainSlider, false);
 
+    addAndMakeVisible(&StartOffsetSlider);
+    StartOffsetSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mStartOffsetAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "START_OFFSET", StartOffsetSlider);
+    StartOffsetSlider.attachLabel(&StartOffsetSlider, false);
+
 }
 
 void controlSlidersBlock::resized() {
@@ -70,13 +75,14 @@ void controlSlidersBlock::resized() {
     const auto sWidth = 70;
     const auto sHeight = 70;
     const auto y = (getHeight() - sHeight) / 2;
-    const auto gap = (getWidth() - (sWidth * 5)) / 6;
+    const auto gap = (getWidth() - (sWidth * 6)) / 7;
 
     GainSlider.setBounds(gap, y, sWidth, sHeight);
     AttackSlider.setBounds(gap * 2 + sWidth, y, sWidth, sHeight);
     DecaySlider.setBounds(gap * 3 + sWidth * 2, y, sWidth, sHeight);
     SustainSlider.setBounds(gap * 4 + sWidth * 3, y, sWidth, sHeight);
     ReleaseSlider.setBounds(gap * 5 + sWidth * 4, y, sWidth, sHeight);
+    StartOffsetSlider.setBounds(gap * 6 + sWidth * 5, y, sWidth, sHeight);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& g)
@@ -109,5 +115,9 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "Release") {
         mReleaseAttachment.reset();
         mReleaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, ReleaseSlider);
+    }
+    if (sliderName == "StartOffset") {
+        mStartOffsetAttachment.reset();
+        mStartOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, StartOffsetSlider);
     }
 }

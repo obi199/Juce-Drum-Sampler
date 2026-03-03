@@ -44,6 +44,7 @@ private:
     waveFormEditor waveComponent{ audioProcessor };
     positionLine position{ audioProcessor };
     startLine start{ audioProcessor };
+    ADSROverlay adsrOverlay{ audioProcessor };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };

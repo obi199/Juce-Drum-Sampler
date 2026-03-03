@@ -100,12 +100,11 @@ public:
     float getPosInSec() { return currentPositionInSeconds; }
     int getCurrentPadIndex() const { return sampleIndex; }
     
-    juce::int64 thumbHash;
     int samplePlayed(int midiNote);
     float newPositionSec = 0;
     int newSampleCount = 0;
-    int totalLength;
-    int mSampleRateInt;
+    int totalLength = 0;
+    int mSampleRateInt = 44100;
     int mSampleStart = 0;
 
     void setStartOffsetForNote(int midiNoteNumber, float offset);

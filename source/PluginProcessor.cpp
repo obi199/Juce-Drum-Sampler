@@ -165,9 +165,11 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     
     if (mSampler.getNumVoices() > 0 && mSampler.getVoice(0)->isVoiceActive()) {
         mSampleCount += buffer.getNumSamples();
+        mIsNotePlayed = true;
     }
     else {
         mSampleCount = 0;
+        mIsNotePlayed = false;
     }
 
     currentPositionInSeconds = mSampleCount / mSamplerate;
@@ -255,19 +257,6 @@ void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
     float padGain = updateGain(padIndex);
     juce::uint8 velocity = static_cast<juce::uint8>(juce::jlimit(1.0f, 127.0f, padGain * 127.0f));
     
-    // Use the global newPositionSec to update the per-pad offset if it was changed by the user dragging the line
-    float audioLengthSeconds = (totalLength / (float)mSampleRateInt);
-    if (audioLengthSeconds > 0)
-    {
-        float offsetRatio = juce::jlimit(0.0f, 0.9999f, newPositionSec / audioLengthSeconds);
-        // Note: We don't necessarily want to ALWAYS update the stored offset to current UI position
-        // during playback if it was just triggered. 
-        // But the previous implementation did it this way.
-        
-        // Actually, ButtonClicked already sets the UI position from stored offset.
-        // If we dragging, newPositionSec is updated.
-    }
-    
     float offset = getStartOffsetForNote(midiNoteNumber);
 
     for (int i = 0; i < mSampler.getNumSounds(); ++i)
@@ -294,9 +283,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
     {
         auto suffix = (i == 0) ? juce::String("") : juce::String(i + 1);
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("GAIN" + suffix, 1), "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.2f));
-        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("ATTACK" + suffix, 1), "Attack", 0.0f, 1.0f, 0.0f));
-        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("DECAY" + suffix, 1), "Decay", 0.0f, 1.0f, 1.0f));
-        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("RELEASE" + suffix, 1), "Release", 0.0f, 1.0f, 0.5f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("ATTACK" + suffix, 1), "Attack", 0.0f, 1.0f, 0.02f));  // 0.02 = 20ms with 1s max
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("DECAY" + suffix, 1), "Decay", 0.0f, 1.0f, 0.5f));   // 0.5 = 500ms with 1s max
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("RELEASE" + suffix, 1), "Release", 0.0f, 1.0f, 0.2f)); // 0.2 = 200ms with 1s max
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("SUSTAIN" + suffix, 1), "Sustain", 0.0f, 1.0f, 1.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("START_OFFSET" + suffix, 1), "Start Offset", 0.0f, 1.0f, 0.0f));
     }
@@ -327,10 +316,69 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
     
     auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
     
-    if (auto* p = mAPVSTATE.getRawParameterValue("ATTACK" + suffix)) pads[padIndex].adsr.attack = p->load();
-    if (auto* p = mAPVSTATE.getRawParameterValue("DECAY" + suffix)) pads[padIndex].adsr.decay = p->load();
-    if (auto* p = mAPVSTATE.getRawParameterValue("SUSTAIN" + suffix)) pads[padIndex].adsr.sustain = p->load();
-    if (auto* p = mAPVSTATE.getRawParameterValue("RELEASE" + suffix)) pads[padIndex].adsr.release = p->load();
+    // Get normalized 0-1 values from APVTS with safe fallbacks
+    float attackNorm = 0.02f;   // Default attack 0.02 = 2% of audio length
+    float decayNorm = 0.5f;     // Default decay 0.5 = 50% of audio length
+    float sustainNorm = 1.0f;   // Default sustain 1.0 = full level
+    float releaseNorm = 0.2f;   // Default release 0.2 = 20% of audio length
+    
+    if (auto* p = mAPVSTATE.getRawParameterValue("ATTACK" + suffix)) 
+        attackNorm = juce::jlimit(0.0f, 1.0f, p->load());
+    if (auto* p = mAPVSTATE.getRawParameterValue("DECAY" + suffix)) 
+        decayNorm = juce::jlimit(0.0f, 1.0f, p->load());
+    if (auto* p = mAPVSTATE.getRawParameterValue("SUSTAIN" + suffix)) 
+        sustainNorm = juce::jlimit(0.0f, 1.0f, p->load());
+    if (auto* p = mAPVSTATE.getRawParameterValue("RELEASE" + suffix)) 
+        releaseNorm = juce::jlimit(0.0f, 1.0f, p->load());
+
+    // Get audio length for this pad to scale ADSR times appropriately
+    float audioLengthSecs = 1.0f;  // Default fallback to 1 second
+    for (int i = 0; i < mSampler.getNumSounds(); ++i)
+    {
+        if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+        {
+            if (sound->appliesToNote(pads[padIndex].midiNote))
+            {
+                if (auto* data = sound->getAudioData())
+                {
+                    audioLengthSecs = (float)data->getNumSamples() / (float)mSamplerate;
+                }
+                break;
+            }
+        }
+    }
+
+    // ADSR params are fractions of total audio length — independent of start offset.
+    // The start offset only shifts where playback begins, not how long each ADSR phase is.
+    float rawAttackSecs  = attackNorm  * audioLengthSecs;
+    float rawDecaySecs   = decayNorm   * audioLengthSecs;
+    float rawReleaseSecs = releaseNorm * audioLengthSecs;
+    
+    // Total envelope time (attack + decay + release, not including sustain duration)
+    float totalEnvelopeTime = rawAttackSecs + rawDecaySecs + rawReleaseSecs;
+    
+    // If total time exceeds available audio length, scale all phases proportionally
+    float scaleFactor = 1.0f;
+    if (totalEnvelopeTime > audioLengthSecs * 0.95f)  // Leave 5% margin
+    {
+        scaleFactor = (audioLengthSecs * 0.95f) / totalEnvelopeTime;
+    }
+    
+    // Apply scaling and ensure minimum values
+    float attackSecs  = juce::jlimit(0.001f, audioLengthSecs, rawAttackSecs  * scaleFactor);
+    float decaySecs   = juce::jlimit(0.001f, audioLengthSecs, rawDecaySecs   * scaleFactor);
+    float releaseSecs = juce::jlimit(0.001f, audioLengthSecs, rawReleaseSecs * scaleFactor);
+
+    DBG("ADSR Update Pad " << padIndex << ": attack=" << attackSecs << "s (norm=" << attackNorm 
+        << "), decay=" << decaySecs << "s, sustain=" << sustainNorm << ", release=" << releaseSecs 
+        << "s | Audio length=" << audioLengthSecs << "s, Scale=" << scaleFactor 
+        << ", Total=" << (attackSecs + decaySecs + releaseSecs) << "s");
+
+    // Set ADSR parameters with actual time values
+    pads[padIndex].adsr.attack = attackSecs;
+    pads[padIndex].adsr.decay = decaySecs;
+    pads[padIndex].adsr.sustain = sustainNorm;  // Sustain is level (0-1), not time
+    pads[padIndex].adsr.release = releaseSecs;
 
     // Apply to the relevant sound
     for (int i = 0; i < mSampler.getNumSounds(); ++i)

@@ -50,12 +50,14 @@ private:
     sliderController DecaySlider{ "Decay" };
     sliderController SustainSlider{ "Sustain" };
     sliderController ReleaseSlider{ "Release" };
+    sliderController StartOffsetSlider{ "Start" };
 
     std::unique_ptr<SliderAttachment> mGainAttachment;
     std::unique_ptr<SliderAttachment> mAttackAttachment;
     std::unique_ptr<SliderAttachment> mDecayAttachment;
     std::unique_ptr<SliderAttachment> mSustainAttachment;
     std::unique_ptr<SliderAttachment> mReleaseAttachment;
+    std::unique_ptr<SliderAttachment> mStartOffsetAttachment;
 
     DrumSamplerAudioProcessor& audioProcessor;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(controlSlidersBlock)

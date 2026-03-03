@@ -18,6 +18,7 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     addAndMakeVisible(&waveComponent);
     addAndMakeVisible(&position);
     addAndMakeVisible(&start);
+    addAndMakeVisible(&adsrOverlay);  // on top — hitTest passes through when not near a handle
 
     // Create 16 pads dynamically
     padButtons.reserve(NUM_PADS);
@@ -93,6 +94,7 @@ void DrumSamplerAudioProcessorEditor::resized()
     waveComponent.setBounds(thumbnailBounds);
     position.setBounds(thumbnailBounds);
     start.setBounds(thumbnailBounds);
+    adsrOverlay.setBounds(thumbnailBounds);
 
     // Controls below the waveform
     int controlsY = thumbnailBounds.getBottom() + 10;
@@ -114,14 +116,6 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, in
         audioProcessor.thumbnail.setSource(new juce::FileInputSource(sampleFile));
     }
 
-    // Reset the draggable start line and processor's newPositionSec to the pad's stored offset
-    // Do this BEFORE calling playFile so playback uses the correct offset.
-    float offset = audioProcessor.getStartOffsetForNote(noteNumber);
-    // Set visual position immediately using normalized offset to avoid 0-length thumbnail race
-    start.setNormalizedOffset(offset);
-
-    audioProcessor.playFile(noteNumber);
-
     // Build parameter suffix for this pad ("" for pad 0, "2".."16" for others)
     auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
 
@@ -133,7 +127,16 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, in
     CBlock.changeSliderParameter("SUSTAIN" + suffix, "Sustain");
     CBlock.changeSliderParameter("START_OFFSET" + suffix, "StartOffset");
 
+    // Apply ADSR BEFORE playing so the envelope is active from the start
     audioProcessor.updateADSR(padIndex);
+
+    // Reset the draggable start line and processor's newPositionSec to the pad's stored offset
+    // Do this BEFORE calling playFile so playback uses the correct offset.
+    float offset = audioProcessor.getStartOffsetForNote(noteNumber);
+    // Set visual position immediately using normalized offset to avoid 0-length thumbnail race
+    start.setNormalizedOffset(offset);
+
+    audioProcessor.playFile(noteNumber);
 }
 
 

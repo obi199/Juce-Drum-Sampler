@@ -57,6 +57,7 @@ public:
 
             adsr.setSampleRate(getSampleRate());
             adsr.setParameters(sound->getEnvelopeParameters());
+            adsr.reset();   // ensure envelopeVal starts from 0, not a leftover sustain level
             adsr.noteOn();
         }
     }
@@ -88,6 +89,7 @@ public:
                 if (currentSamplePos >= sampleLength)
                 {
                     clearCurrentNote();
+                    adsr.reset();
                     break;
                 }
 
