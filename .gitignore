@@ -1,3 +1,6 @@
+.idea/
+.vscode/
+cmake-build-*/
 /Builds/
 /x64/
 /Debug/
@@ -10,7 +13,6 @@
 *.exe
 *.log
    .vs/
-   .DS_Store
-   Thumbs.db
+.DS_Store
+Thumbs.db
 JUCE/
-.idea/git

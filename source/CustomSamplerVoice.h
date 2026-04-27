@@ -45,6 +45,7 @@ public:
     {
         juce::SamplerVoice::startNote(midiNoteNumber, velocity, s, currentPitchWheelPosition);
         currentSamplePos = 0;
+        currentGain = velocity;
 
         if (auto* sound = dynamic_cast<CustomSamplerSound*>(s))
         {
@@ -93,7 +94,7 @@ public:
                     break;
                 }
 
-                float envelopeValue = adsr.getNextSample();
+                float envelopeValue = adsr.getNextSample() * currentGain;
                 for (int channel = 0; channel < numChannels; ++channel)
                 {
                     float sample = data->getSample(channel % data->getNumChannels(), currentSamplePos);
@@ -106,7 +107,10 @@ public:
 
     void renderNextBlock(juce::AudioBuffer<double>&, int, int) override {}
 
+    int getNextSamplePos() const { return currentSamplePos; }
+
 private:
     int currentSamplePos = 0;
+    float currentGain = 1.0f;
     juce::ADSR adsr;
 };

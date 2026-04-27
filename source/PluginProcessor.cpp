@@ -31,6 +31,7 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
     for (int i = 0; i < NUM_PADS; ++i)
     {
         pads[i].midiNote = MIDI_NOTES[i];
+        pads[i].gain = 1.0f; // Default to unity gain (0.0 dB)
     }
 
     for (int i = 0; i < MAX_VOICES; i++) {
@@ -163,22 +164,56 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             mShouldUpdate = false;
     }
     
-    if (mSampler.getNumVoices() > 0 && mSampler.getVoice(0)->isVoiceActive()) {
-        mSampleCount += buffer.getNumSamples();
-        mIsNotePlayed = true;
+    if (mSampler.getNumVoices() > 0)
+    {
+        bool anyActive = false;
+        int latestSamplePos = 0;
+        
+        for (int i = 0; i < mSampler.getNumVoices(); ++i)
+        {
+            if (auto* v = dynamic_cast<CustomSamplerVoice*>(mSampler.getVoice(i)))
+            {
+                if (v->isVoiceActive())
+                {
+                    anyActive = true;
+                    // We take the position from the first active voice we find, 
+                    // or we could track which one was triggered last if needed.
+                    latestSamplePos = v->getNextSamplePos();
+                }
+            }
+        }
+        
+        if (anyActive)
+        {
+            mSampleCount = latestSamplePos;
+            mIsNotePlayed = true;
+        }
+        else
+        {
+            mSampleCount = 0;
+            mIsNotePlayed = false;
+        }
     }
     else {
         mSampleCount = 0;
         mIsNotePlayed = false;
     }
 
-    currentPositionInSeconds = mSampleCount / mSamplerate;
+    currentPositionInSeconds = static_cast<float>(mSampleCount) / static_cast<float>(mSamplerate);
     
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 
     // Apply gain from the active pad
     if (currentGain > 0.0f && std::abs(currentGain - 1.0f) > 1e-6f) {
         buffer.applyGain(currentGain);
+    }
+
+    // Safety limiter/clamping to avoid harsh digital distortion
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+    {
+        auto* data = buffer.getWritePointer(ch);
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+            data[i] = juce::jlimit(-1.0f, 1.0f, data[i]);
     }
 }
 
@@ -255,7 +290,7 @@ void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
     if (padIndex == -1) return;
     
     float padGain = updateGain(padIndex);
-    juce::uint8 velocity = static_cast<juce::uint8>(juce::jlimit(1.0f, 127.0f, padGain * 127.0f));
+    juce::uint8 velocity = static_cast<juce::uint8>(juce::jlimit(1.0f, 127.0f, padGain * 100.0f));
     
     float offset = getStartOffsetForNote(midiNoteNumber);
 
@@ -282,7 +317,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
     for (int i = 0; i < NUM_PADS; ++i)
     {
         auto suffix = (i == 0) ? juce::String("") : juce::String(i + 1);
-        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("GAIN" + suffix, 1), "Gain", juce::NormalisableRange<float>(0.0f, 1.0f), 0.2f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("GAIN" + suffix, 1), 
+            "Gain", 
+            juce::NormalisableRange<float>(-42.0f, 24.0f, 0.1f, 1.5f), 
+            0.0f,
+            "dB"
+        ));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("ATTACK" + suffix, 1), "Attack", 0.0f, 1.0f, 0.02f));  // 0.02 = 20ms with 1s max
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("DECAY" + suffix, 1), "Decay", 0.0f, 1.0f, 0.5f));   // 0.5 = 500ms with 1s max
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("RELEASE" + suffix, 1), "Release", 0.0f, 1.0f, 0.2f)); // 0.2 = 200ms with 1s max
@@ -303,7 +344,9 @@ float DrumSamplerAudioProcessor::updateGain(int padIndex)
     
     if (auto* param = mAPVSTATE.getRawParameterValue(paramID))
     {
-        currentGain = param->load();
+        float dbValue = param->load();
+        // Shift by -18 dB to keep the same internal volume (-18 dB displayed as 0 dB)
+        currentGain = juce::Decibels::decibelsToGain(dbValue - 18.0f, -78.0f);
         pads[static_cast<size_t>(padIndex)].gain = currentGain;
     }
     
@@ -438,7 +481,10 @@ int DrumSamplerAudioProcessor::samplePlayed(int midiNote)
 {
     int padIndex = getPadIndexFromMidiNote(midiNote);
     if (padIndex != -1)
+    {
         sampleIndex = padIndex;
+        mSampleCount = 0; // Reset sample count when a note is played
+    }
     return sampleIndex;
 }
 

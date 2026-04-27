@@ -83,16 +83,19 @@ positionLine::~positionLine()
 
 void positionLine::paint(juce::Graphics& g)
 {
-    //g.fillAll(juce::Colours::red);
     auto audioLength = (float)Processor.thumbnail.getTotalLength();
-    auto audioPosition = (float)Processor.getPosInSec();
     if (audioLength > 0.0) {
-        //toFront(true);
+        auto audioPosition = (float)Processor.getPosInSec();
+        
+        // Ensure the line is drawn relative to the whole thumbnail
         auto drawPosition = (audioPosition / audioLength) * (float)getWidth();
+        
+        // If we want it relative to the start line (optional, but usually preferred):
+        // However, getPosInSec() now returns the absolute position in the sample 
+        // because we get it from CustomSamplerVoice::currentSamplePos.
+        
         g.setColour(juce::Colours::red);
-        g.drawLine(drawPosition, 0.0f, drawPosition,
-            (float)getHeight(), 1.0f);
-       
+        g.drawLine(drawPosition, 0.0f, drawPosition, (float)getHeight(), 1.0f);
     }
 }
 
