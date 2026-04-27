@@ -28,7 +28,7 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
     mAPVSTATE.state.addListener(this);
     
     // Initialize pads
-    for (int i = 0; i < NUM_PADS; ++i)
+    for (size_t i = 0; i < (size_t)NUM_PADS; ++i)
     {
         pads[i].midiNote = MIDI_NOTES[i];
         pads[i].gain = 1.0f; // Default to unity gain (0.0 dB)
@@ -380,7 +380,7 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
     {
         if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
         {
-            if (sound->appliesToNote(pads[padIndex].midiNote))
+            if (sound->appliesToNote(pads[(size_t)padIndex].midiNote))
             {
                 if (auto* data = sound->getAudioData())
                 {
@@ -418,19 +418,19 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
         << ", Total=" << (attackSecs + decaySecs + releaseSecs) << "s");
 
     // Set ADSR parameters with actual time values
-    pads[padIndex].adsr.attack = attackSecs;
-    pads[padIndex].adsr.decay = decaySecs;
-    pads[padIndex].adsr.sustain = sustainNorm;  // Sustain is level (0-1), not time
-    pads[padIndex].adsr.release = releaseSecs;
+    pads[(size_t)padIndex].adsr.attack = attackSecs;
+    pads[(size_t)padIndex].adsr.decay = decaySecs;
+    pads[(size_t)padIndex].adsr.sustain = sustainNorm;  // Sustain is level (0-1), not time
+    pads[(size_t)padIndex].adsr.release = releaseSecs;
 
     // Apply to the relevant sound
     for (int i = 0; i < mSampler.getNumSounds(); ++i)
     {
         if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
         {
-            if (sound->appliesToNote(pads[padIndex].midiNote))
+            if (sound->appliesToNote(pads[(size_t)padIndex].midiNote))
             {
-                sound->setEnvelopeParameters(pads[padIndex].adsr);
+                sound->setEnvelopeParameters(pads[(size_t)padIndex].adsr);
                 break;
             }
         }
@@ -489,7 +489,7 @@ int DrumSamplerAudioProcessor::samplePlayed(int midiNote)
 }
 
 //==============================================================================
-void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& /*treeWhosePropertyHasChanged*/, const juce::Identifier& property)
+void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& /*treeWhosePropertyHasChanged*/, const juce::Identifier& /*property*/)
 {
     mShouldUpdate = true;
     mUpdateCount = 2;

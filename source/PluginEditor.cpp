@@ -12,7 +12,7 @@
 
 //==============================================================================
 DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor& p)
-    : AudioProcessorEditor (&p), waveComponent(p), audioProcessor(p) {
+    : AudioProcessorEditor (&p), audioProcessor(p), waveComponent(p) {
 
     addAndMakeVisible(&CBlock);
     addAndMakeVisible(&waveComponent);
@@ -74,10 +74,10 @@ void DrumSamplerAudioProcessorEditor::resized()
     int leftWidth = getWidth() / 2;
     int padSize = (leftWidth - leftMargin - (padGap * cols)) / cols;
 
-    for (int i = 0; i < static_cast<int>(padButtons.size()); ++i)
+    for (size_t i = 0; i < padButtons.size(); ++i)
     {
-        int row = i / cols;
-        int col = i % cols;
+        int row = static_cast<int>(i) / cols;
+        int col = static_cast<int>(i) % cols;
         int x = leftMargin + col * (padSize + padGap);
         int y = topMargin + row * (padSize + padGap);
         padButtons[i]->setBounds(x, y, padSize, padSize);
@@ -97,7 +97,7 @@ void DrumSamplerAudioProcessorEditor::resized()
     adsrOverlay.setBounds(thumbnailBounds);
 
     // Controls below the waveform
-    int controlsY = thumbnailBounds.getBottom() + 10;
+    int controlsY = thumbnailBounds.getBottom() + 20;
     int controlsHeight = totalHeight - controlsY - 10;
     CBlock.setBounds(rightX, controlsY, rightWidth, controlsHeight);
 }

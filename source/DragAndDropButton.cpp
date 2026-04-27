@@ -82,7 +82,7 @@ void DragAndDropButton::paint(juce::Graphics& g)
 
     // --- Text ---
     g.setColour(juce::Colours::white.withAlpha(0.85f));
-    g.setFont(juce::Font(12.0f));
+    g.setFont(juce::FontOptions(12.0f));
 
     if (hasSound)
     {

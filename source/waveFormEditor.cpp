@@ -45,17 +45,32 @@ void waveFormEditor::paintIfNoFileLoaded(juce::Graphics& g)
 
 void waveFormEditor::paintIfFileLoaded(juce::Graphics& g)
 {
-    g.setColour(juce::Colours::white);
-    g.fillAll(juce::Colours::white);
+    // The background of the editor is black.
+    // We only fill with white the part that is being played.
+    // The unplayed part (before startOffset) remains transparent/black.
 
     g.setColour(juce::Colours::red);                               
     auto audioLength = (float)Processor.thumbnail.getTotalLength();
 
+    int padIndex = Processor.getCurrentPadIndex();
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+    float startOffset = 0.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("START_OFFSET" + suffix))
+        startOffset = v->load();
+
+    auto bounds = getLocalBounds();
+    auto startX = startOffset * (float)bounds.getWidth();
+
+    // Fill only the played part background with white
+    g.setColour(juce::Colours::white);
+    g.fillRect(bounds.withLeft((int)startX));
+
+    g.setColour(juce::Colours::red);
     Processor.thumbnail.drawChannels(g,                                      
-        getLocalBounds(),
-        0.0,                                    // start time
-        audioLength,             // end time
-        1.0f);                                  // vertical zoom
+        bounds,
+        startOffset * audioLength,             // start time
+        audioLength,                           // end time
+        1.0f);                                 // vertical zoom
 }
 
 void waveFormEditor::changeListenerCallback(juce::ChangeBroadcaster* source)
@@ -330,7 +345,7 @@ void ADSROverlay::mouseMove(const juce::MouseEvent& event)
             setMouseCursor(juce::MouseCursor::LeftRightResizeCursor); break;
         case DragHandle::Sustain:
             setMouseCursor(juce::MouseCursor::UpDownResizeCursor); break;
-        default:
+        case DragHandle::None:
             setMouseCursor(juce::MouseCursor::NormalCursor); break;
     }
 }
@@ -380,7 +395,8 @@ void ADSROverlay::mouseDrag(const juce::MouseEvent& event)
             setParam("RELEASE", newVal);
             break;
         }
-        default: break;
+        case DragHandle::None:
+            break;
     }
 
     repaint();
@@ -416,27 +432,27 @@ void ADSROverlay::paint(juce::Graphics& g)
     env.lineTo(w,  h);               // release to zero
     env.closeSubPath();
 
-    g.setColour(juce::Colours::white.withAlpha(0.08f));
+    g.setColour(juce::Colours::red.withAlpha(0.1f));
     g.fillPath(env);
-    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.setColour(juce::Colours::red.withAlpha(0.5f));
     g.strokePath(env, juce::PathStrokeType(1.2f));
 
     // --- Draw angled handle lines that follow the envelope slope ---
     
     // Attack line: diagonal from startX to peak (angled based on attack duration)
-    g.setColour(juce::Colour(0xff44ff88).withAlpha(0.8f));
+    g.setColour(juce::Colours::red);
     g.drawLine(sx, h, ax, 0.0f, 2.0f);
     
     // Decay line: diagonal from peak to sustain level (angled based on decay duration)
-    g.setColour(juce::Colour(0xffffd740).withAlpha(0.8f));
+    g.setColour(juce::Colours::red);
     g.drawLine(ax, 0.0f, dx, sy, 2.0f);
     
     // Sustain line: horizontal flat line
-    g.setColour(juce::Colour(0xff40c8ff).withAlpha(0.8f));
+    g.setColour(juce::Colours::red);
     g.drawLine(dx, sy, rx, sy, 2.0f);
     
     // Release line: diagonal from sustain to end (angled based on release duration)
-    g.setColour(juce::Colour(0xffff7043).withAlpha(0.8f));
+    g.setColour(juce::Colours::red);
     g.drawLine(rx, sy, w, h, 2.0f);
 
     // --- Handle circles with labels ---
@@ -448,17 +464,17 @@ void ADSROverlay::paint(juce::Graphics& g)
         g.fillEllipse(hx - kHandleRadius, hy - kHandleRadius,
                       kHandleRadius * 2.0f, kHandleRadius * 2.0f);
 
-        g.setFont(juce::Font(10.0f, juce::Font::bold));
-        g.setColour(juce::Colours::black);
+        g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+        g.setColour(juce::Colours::white);
         g.drawText(label, (int)(hx - kHandleRadius), (int)(hy - kHandleRadius),
                    (int)(kHandleRadius * 2), (int)(kHandleRadius * 2),
                    juce::Justification::centred, false);
     };
 
     // Draw handle circles at the key points
-    drawHandleCircle(ax,          0.0f,  juce::Colour(0xff44ff88), "A");  // Attack  – green
-    drawHandleCircle(dx,          sy,    juce::Colour(0xffffd740), "D");  // Decay   – yellow
-    drawHandleCircle((dx + rx) * 0.5f, sy, juce::Colour(0xff40c8ff), "S");  // Sustain – cyan
-    drawHandleCircle(rx,          sy,    juce::Colour(0xffff7043), "R");  // Release – orange
+    drawHandleCircle(ax,          0.0f,  juce::Colours::red, "A");  // Attack  – red
+    drawHandleCircle(dx,          sy,    juce::Colours::red, "D");  // Decay   – red
+    drawHandleCircle((dx + rx) * 0.5f, sy, juce::Colours::red, "S");  // Sustain – red
+    drawHandleCircle(rx,          sy,    juce::Colours::red, "R");  // Release – red
 }
 

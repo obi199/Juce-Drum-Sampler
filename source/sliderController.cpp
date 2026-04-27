@@ -18,7 +18,7 @@ sliderController::sliderController(juce::String name) {
 
     addAndMakeVisible(&nameLabel);
     setTextBoxStyle(TextBoxBelow, true, getTextBoxWidth() - 20, getTextBoxHeight());
-    nameLabel.setFont(15.0);
+    nameLabel.setFont(juce::FontOptions(15.0f));
     nameLabel.setText(name, juce::dontSendNotification);
     nameLabel.attachToComponent(this, true);
     nameLabel.setJustificationType(juce::Justification::centredTop);
@@ -74,7 +74,7 @@ void controlSlidersBlock::resized() {
 
     const auto sWidth = 70;
     const auto sHeight = 70;
-    const auto y = (getHeight() - sHeight) / 2;
+    const auto y = 25; // Increased from 15 to give more room for labels
     const auto gap = (getWidth() - (sWidth * 6)) / 7;
 
     GainSlider.setBounds(gap, y, sWidth, sHeight);
@@ -85,7 +85,7 @@ void controlSlidersBlock::resized() {
     StartOffsetSlider.setBounds(gap * 6 + sWidth * 5, y, sWidth, sHeight);
 }
 
-void controlSlidersBlock::paint(juce::Graphics& g)
+void controlSlidersBlock::paint(juce::Graphics& /*g*/)
 {
     // No fillAll here, it might cover other components if the parent doesn't set bounds correctly
     // or if this component is larger than expected.
