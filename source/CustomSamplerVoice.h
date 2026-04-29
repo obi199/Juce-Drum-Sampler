@@ -28,8 +28,12 @@ public:
     void setEnvelopeParameters(const juce::ADSR::Parameters& newParams) { adsrParams = newParams; }
     const juce::ADSR::Parameters& getEnvelopeParameters() const { return adsrParams; }
 
+    void setVelToAttack(float amount) { velToAttack = juce::jlimit(0.0f, 1.0f, amount); }
+    float getVelToAttack() const { return velToAttack; }
+
 private:
     float startOffset = 0.0f;
+    float velToAttack = 0.0f;
     juce::ADSR::Parameters adsrParams;
 };
 
@@ -57,7 +61,17 @@ public:
             }
 
             adsr.setSampleRate(getSampleRate());
-            adsr.setParameters(sound->getEnvelopeParameters());
+
+            // Modulate attack time based on velocity and Vel>Atk amount
+            auto params = sound->getEnvelopeParameters();
+            float velAmount = sound->getVelToAttack();
+            if (velAmount > 0.0f)
+            {
+                float velFactor = 1.0f - (velocity * velAmount);
+                params.attack = juce::jmax(0.001f, params.attack * velFactor);
+            }
+            adsr.setParameters(params);
+
             adsr.reset();   // ensure envelopeVal starts from 0, not a leftover sustain level
             adsr.noteOn();
         }
@@ -66,13 +80,15 @@ public:
     void stopNote(float /*velocity*/, bool allowTailOff) override
     {
         if (allowTailOff)
+        {
             adsr.noteOff();
+        }
         else
         {
             clearCurrentNote();
             adsr.reset();
+            currentSamplePos = 0;
         }
-        currentSamplePos = 0;
     }
 
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override
@@ -95,6 +111,15 @@ public:
                 }
 
                 float envelopeValue = adsr.getNextSample() * currentGain;
+
+                if (!adsr.isActive())
+                {
+                    clearCurrentNote();
+                    adsr.reset();
+                    currentSamplePos = 0;
+                    break;
+                }
+
                 for (int channel = 0; channel < numChannels; ++channel)
                 {
                     float sample = data->getSample(channel % data->getNumChannels(), currentSamplePos);

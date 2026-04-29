@@ -21,7 +21,8 @@
 
 //main component//
 
-class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor
+class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor,
+                                          private juce::Timer
 {
 public:
     DrumSamplerAudioProcessorEditor (DrumSamplerAudioProcessor&);
@@ -32,6 +33,8 @@ public:
     void resized() override;
 
     void ButtonClicked(juce::Button* button, int noteNumber);
+    void switchTopad(int padIndex);
+    void timerCallback() override;
     juce::File audioFile;
 
 private:
@@ -45,6 +48,8 @@ private:
     positionLine position{ audioProcessor };
     startLine start{ audioProcessor };
     ADSROverlay adsrOverlay{ audioProcessor };
+
+    int lastDisplayedPadIndex = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };

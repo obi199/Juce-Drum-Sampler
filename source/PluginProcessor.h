@@ -27,7 +27,7 @@ struct DrumPad
 // Configuration Constants
 static constexpr int MAX_VOICES = 16;
 static constexpr int NUM_PADS = 16;
-static constexpr int MIDI_NOTES[NUM_PADS] = { 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75 };
+static constexpr int MIDI_NOTES[NUM_PADS] = { 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51 };
 
 //==============================================================================
 /**
@@ -97,6 +97,7 @@ public:
     
     std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
     std::atomic<int>& getSampleCount() { return mSampleCount; }
+    bool checkAndClearPadSwitchedFromMidi() { return mPadSwitchedFromMidi.exchange(false); }
     float getPosInSec() { return currentPositionInSeconds; }
     int getCurrentPadIndex() const { return sampleIndex; }
     
@@ -124,6 +125,7 @@ private:
     std::atomic<int> mUpdateCount{ 0 };
     std::atomic<bool> mIsNotePlayed{ false };
     std::atomic<int> mSampleCount{ 0 };
+    std::atomic<bool> mPadSwitchedFromMidi{ false };
     
     float currentPositionInSeconds = 0;
     double mSamplerate = 48000.0;

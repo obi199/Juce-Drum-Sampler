@@ -50,11 +50,12 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     const int gridHeight = topMarginCalc + rowsCalc * padSizeCalc + (rowsCalc - 1) * padGapCalc + topMarginCalc; // add bottom margin equal to top
     const int extra = 8; // a little bigger so the grid fits nicely
     setSize (initialWidth, gridHeight + extra);
+    startTimer(50); // Poll for MIDI pad switches at ~20Hz
 }
 
 DrumSamplerAudioProcessorEditor::~DrumSamplerAudioProcessorEditor()
 {
-
+    stopTimer();
 }
 
 //==============================================================================
@@ -74,12 +75,15 @@ void DrumSamplerAudioProcessorEditor::resized()
     int leftWidth = getWidth() / 2;
     int padSize = (leftWidth - leftMargin - (padGap * cols)) / cols;
 
+    int rows = 4;
     for (size_t i = 0; i < padButtons.size(); ++i)
     {
         int row = static_cast<int>(i) / cols;
         int col = static_cast<int>(i) % cols;
+        // Flip rows so pad 0 is at the bottom-left (MPC-style layout)
+        int flippedRow = (rows - 1) - row;
         int x = leftMargin + col * (padSize + padGap);
-        int y = topMargin + row * (padSize + padGap);
+        int y = topMargin + flippedRow * (padSize + padGap);
         padButtons[i]->setBounds(x, y, padSize, padSize);
     }
 
@@ -102,18 +106,22 @@ void DrumSamplerAudioProcessorEditor::resized()
     CBlock.setBounds(rightX, controlsY, rightWidth, controlsHeight);
 }
 
-void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, int noteNumber)
+void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
 {
-    // Determine pad index from MIDI note
-    int padIndex = audioProcessor.getPadIndexFromMidiNote(noteNumber);
-    if (padIndex < 0)
+    if (padIndex < 0 || padIndex >= NUM_PADS)
         return;
 
-    // If the pad has a sample, point the thumbnail to it first so we know its length
+    lastDisplayedPadIndex = padIndex;
+
+    // If the pad has a sample, point the thumbnail to it; otherwise clear the waveform
     if (audioProcessor.hasSampleLoaded(padIndex))
     {
         auto sampleFile = audioProcessor.getSampleFile(padIndex);
         audioProcessor.thumbnail.setSource(new juce::FileInputSource(sampleFile));
+    }
+    else
+    {
+        audioProcessor.thumbnail.setSource(nullptr);
     }
 
     // Build parameter suffix for this pad ("" for pad 0, "2".."16" for others)
@@ -126,17 +134,34 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, in
     CBlock.changeSliderParameter("RELEASE" + suffix, "Release");
     CBlock.changeSliderParameter("SUSTAIN" + suffix, "Sustain");
     CBlock.changeSliderParameter("START_OFFSET" + suffix, "StartOffset");
+    CBlock.changeSliderParameter("VEL_TO_ATTACK" + suffix, "VelToAttack");
 
-    // Apply ADSR BEFORE playing so the envelope is active from the start
+    // Update ADSR for this pad
     audioProcessor.updateADSR(padIndex);
 
-    // Reset the draggable start line and processor's newPositionSec to the pad's stored offset
-    // Do this BEFORE calling playFile so playback uses the correct offset.
+    // Reset the draggable start line to the pad's stored offset
+    int noteNumber = MIDI_NOTES[padIndex];
     float offset = audioProcessor.getStartOffsetForNote(noteNumber);
-    // Set visual position immediately using normalized offset to avoid 0-length thumbnail race
     start.setNormalizedOffset(offset);
+}
 
+void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, int noteNumber)
+{
+    int padIndex = audioProcessor.getPadIndexFromMidiNote(noteNumber);
+    if (padIndex < 0)
+        return;
+
+    switchTopad(padIndex);
     audioProcessor.playFile(noteNumber);
+}
+
+void DrumSamplerAudioProcessorEditor::timerCallback()
+{
+    if (audioProcessor.checkAndClearPadSwitchedFromMidi())
+    {
+        int padIndex = audioProcessor.getCurrentPadIndex();
+        switchTopad(padIndex);
+    }
 }
 
 

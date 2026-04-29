@@ -68,6 +68,11 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     mStartOffsetAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "START_OFFSET", StartOffsetSlider);
     StartOffsetSlider.attachLabel(&StartOffsetSlider, false);
 
+    addAndMakeVisible(&VelToAttackSlider);
+    VelToAttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mVelToAttackAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "VEL_TO_ATTACK", VelToAttackSlider);
+    VelToAttackSlider.attachLabel(&VelToAttackSlider, false);
+
 }
 
 void controlSlidersBlock::resized() {
@@ -75,7 +80,7 @@ void controlSlidersBlock::resized() {
     const auto sWidth = 70;
     const auto sHeight = 70;
     const auto y = 25; // Increased from 15 to give more room for labels
-    const auto gap = (getWidth() - (sWidth * 6)) / 7;
+    const auto gap = (getWidth() - (sWidth * 7)) / 8;
 
     GainSlider.setBounds(gap, y, sWidth, sHeight);
     AttackSlider.setBounds(gap * 2 + sWidth, y, sWidth, sHeight);
@@ -83,6 +88,7 @@ void controlSlidersBlock::resized() {
     SustainSlider.setBounds(gap * 4 + sWidth * 3, y, sWidth, sHeight);
     ReleaseSlider.setBounds(gap * 5 + sWidth * 4, y, sWidth, sHeight);
     StartOffsetSlider.setBounds(gap * 6 + sWidth * 5, y, sWidth, sHeight);
+    VelToAttackSlider.setBounds(gap * 7 + sWidth * 6, y, sWidth, sHeight);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& /*g*/)
@@ -119,5 +125,9 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "StartOffset") {
         mStartOffsetAttachment.reset();
         mStartOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, StartOffsetSlider);
+    }
+    if (sliderName == "VelToAttack") {
+        mVelToAttackAttachment.reset();
+        mVelToAttackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, VelToAttackSlider);
     }
 }

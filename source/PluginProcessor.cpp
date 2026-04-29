@@ -153,7 +153,27 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-    
+
+    // Detect incoming MIDI note-on events and update the active pad accordingly
+    for (const auto metadata : midiMessages)
+    {
+        auto msg = metadata.getMessage();
+        if (msg.isNoteOn())
+        {
+            int noteNumber = msg.getNoteNumber();
+            int padIdx = getPadIndexFromMidiNote(noteNumber);
+            if (padIdx != -1)
+            {
+                if (padIdx != sampleIndex)
+                {
+                    samplePlayed(noteNumber);
+                    currentGain = updateGain(padIdx);
+                }
+                mPadSwitchedFromMidi = true;
+            }
+        }
+    }
+
     // Update gain and ADSR for the currently active pad before rendering
     if (mUpdateCount > 0)
     {
@@ -329,6 +349,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("RELEASE" + suffix, 1), "Release", 0.0f, 1.0f, 0.2f)); // 0.2 = 200ms with 1s max
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("SUSTAIN" + suffix, 1), "Sustain", 0.0f, 1.0f, 1.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("START_OFFSET" + suffix, 1), "Start Offset", 0.0f, 1.0f, 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), "Vel>Atk", 0.0f, 1.0f, 0.0f));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -431,6 +452,12 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
             if (sound->appliesToNote(pads[(size_t)padIndex].midiNote))
             {
                 sound->setEnvelopeParameters(pads[(size_t)padIndex].adsr);
+
+                float velToAtk = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("VEL_TO_ATTACK" + suffix))
+                    velToAtk = v->load();
+                sound->setVelToAttack(velToAtk);
+
                 break;
             }
         }
