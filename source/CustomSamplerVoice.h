@@ -16,7 +16,8 @@ public:
                        double releaseTimeSecs,
                        double maxSampleLengthSeconds)
         : SamplerSound(soundName, source, midiNoteRange, midiNoteForNormalPitch,
-                       attackTimeSecs, releaseTimeSecs, maxSampleLengthSeconds)
+                       attackTimeSecs, releaseTimeSecs, maxSampleLengthSeconds),
+          sourceSampleRate(source.sampleRate)
     {
         adsrParams.attack = static_cast<float>(attackTimeSecs);
         adsrParams.release = static_cast<float>(releaseTimeSecs);
@@ -31,15 +32,18 @@ public:
     void setVelToAttack(float amount) { velToAttack = juce::jlimit(0.0f, 1.0f, amount); }
     float getVelToAttack() const { return velToAttack; }
 
+    double getSourceSampleRate() const { return sourceSampleRate; }
+
 private:
     float startOffset = 0.0f;
     float velToAttack = 0.0f;
+    double sourceSampleRate = 44100.0;
     juce::ADSR::Parameters adsrParams;
 };
 
 /**
     CustomSamplerVoice renders the audio for a CustomSamplerSound.
-    It handles the start offset and the ADSR envelope.
+    It handles the start offset, sample-rate conversion, and the ADSR envelope.
 */
 class CustomSamplerVoice : public juce::SamplerVoice
 {
@@ -48,19 +52,25 @@ public:
                    juce::SynthesiserSound* s, int currentPitchWheelPosition) override
     {
         juce::SamplerVoice::startNote(midiNoteNumber, velocity, s, currentPitchWheelPosition);
-        currentSamplePos = 0;
-        currentGain = velocity;
+        currentSamplePos = 0.0;
+        // Apply a velocity curve: velocity^0.5 gives a more natural, louder response
+        // at high velocities compared to linear mapping
+        currentGain = std::pow(velocity, 0.5f);
 
         if (auto* sound = dynamic_cast<CustomSamplerSound*>(s))
         {
+            // Compute pitch ratio so files at any sample rate play at correct speed
+            double hostRate = getSampleRate();
+            pitchRatio = (hostRate > 0.0) ? (sound->getSourceSampleRate() / hostRate) : 1.0;
+
             float offset = sound->getStartOffset();
             if (auto* data = sound->getAudioData())
             {
                 auto numSamples = data->getNumSamples();
-                currentSamplePos = static_cast<int>(offset * static_cast<float>(numSamples));
+                currentSamplePos = static_cast<double>(offset) * static_cast<double>(numSamples);
             }
 
-            adsr.setSampleRate(getSampleRate());
+            adsr.setSampleRate(hostRate);
 
             // Modulate attack time based on velocity and Vel>Atk amount
             auto params = sound->getEnvelopeParameters();
@@ -87,7 +97,7 @@ public:
         {
             clearCurrentNote();
             adsr.reset();
-            currentSamplePos = 0;
+            currentSamplePos = 0.0;
         }
     }
 
@@ -103,7 +113,8 @@ public:
 
             for (int i = 0; i < numSamples; ++i)
             {
-                if (currentSamplePos >= sampleLength)
+                int pos0 = static_cast<int>(currentSamplePos);
+                if (pos0 >= sampleLength - 1)
                 {
                     clearCurrentNote();
                     adsr.reset();
@@ -116,26 +127,34 @@ public:
                 {
                     clearCurrentNote();
                     adsr.reset();
-                    currentSamplePos = 0;
+                    currentSamplePos = 0.0;
                     break;
                 }
 
+                // Linear interpolation between adjacent samples
+                int pos1 = pos0 + 1;
+                float frac = static_cast<float>(currentSamplePos - static_cast<double>(pos0));
+
                 for (int channel = 0; channel < numChannels; ++channel)
                 {
-                    float sample = data->getSample(channel % data->getNumChannels(), currentSamplePos);
+                    int srcCh = channel % data->getNumChannels();
+                    float s0 = data->getSample(srcCh, pos0);
+                    float s1 = data->getSample(srcCh, pos1);
+                    float sample = s0 + frac * (s1 - s0);
                     outputBuffer.addSample(channel, startSample + i, sample * envelopeValue);
                 }
-                ++currentSamplePos;
+                currentSamplePos += pitchRatio;
             }
         }
     }
 
     void renderNextBlock(juce::AudioBuffer<double>&, int, int) override {}
 
-    int getNextSamplePos() const { return currentSamplePos; }
+    int getNextSamplePos() const { return static_cast<int>(currentSamplePos); }
 
 private:
-    int currentSamplePos = 0;
+    double currentSamplePos = 0.0;
+    double pitchRatio = 1.0;
     float currentGain = 1.0f;
     juce::ADSR adsr;
 };

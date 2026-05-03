@@ -164,11 +164,8 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             int padIdx = getPadIndexFromMidiNote(noteNumber);
             if (padIdx != -1)
             {
-                if (padIdx != sampleIndex)
-                {
-                    samplePlayed(noteNumber);
-                    currentGain = updateGain(padIdx);
-                }
+                samplePlayed(noteNumber);
+                currentGain = updateGain(padIdx);
                 mPadSwitchedFromMidi = true;
             }
         }
@@ -309,8 +306,10 @@ void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
     int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
     if (padIndex == -1) return;
     
-    float padGain = updateGain(padIndex);
-    juce::uint8 velocity = static_cast<juce::uint8>(juce::jlimit(1.0f, 127.0f, padGain * 100.0f));
+    // Use a fixed velocity for GUI-triggered playback (0.0–1.0 range).
+    // The gain slider is already applied to the output buffer in processBlock,
+    // so deriving velocity from gain would double-apply it.
+    float velocity = 100.0f / 127.0f;
     
     float offset = getStartOffsetForNote(midiNoteNumber);
 
@@ -328,6 +327,7 @@ void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
 
     mSampler.noteOn(1, midiNoteNumber, velocity);
     samplePlayed(midiNoteNumber);
+    currentGain = updateGain(padIndex);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::createParameters()
@@ -366,8 +366,7 @@ float DrumSamplerAudioProcessor::updateGain(int padIndex)
     if (auto* param = mAPVSTATE.getRawParameterValue(paramID))
     {
         float dbValue = param->load();
-        // Shift by -18 dB to keep the same internal volume (-18 dB displayed as 0 dB)
-        currentGain = juce::Decibels::decibelsToGain(dbValue - 18.0f, -78.0f);
+        currentGain = juce::Decibels::decibelsToGain(dbValue, -60.0f);
         pads[static_cast<size_t>(padIndex)].gain = currentGain;
     }
     
@@ -381,10 +380,10 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
     auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
     
     // Get normalized 0-1 values from APVTS with safe fallbacks
-    float attackNorm = 0.02f;   // Default attack 0.02 = 2% of audio length
-    float decayNorm = 0.5f;     // Default decay 0.5 = 50% of audio length
-    float sustainNorm = 1.0f;   // Default sustain 1.0 = full level
-    float releaseNorm = 0.2f;   // Default release 0.2 = 20% of audio length
+    float attackNorm = 0.02f;
+    float decayNorm = 0.5f;
+    float sustainNorm = 1.0f;
+    float releaseNorm = 0.2f;
     
     if (auto* p = mAPVSTATE.getRawParameterValue("ATTACK" + suffix)) 
         attackNorm = juce::jlimit(0.0f, 1.0f, p->load());
@@ -395,48 +394,19 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
     if (auto* p = mAPVSTATE.getRawParameterValue("RELEASE" + suffix)) 
         releaseNorm = juce::jlimit(0.0f, 1.0f, p->load());
 
-    // Get audio length for this pad to scale ADSR times appropriately
-    float audioLengthSecs = 1.0f;  // Default fallback to 1 second
-    for (int i = 0; i < mSampler.getNumSounds(); ++i)
-    {
-        if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
-        {
-            if (sound->appliesToNote(pads[(size_t)padIndex].midiNote))
-            {
-                if (auto* data = sound->getAudioData())
-                {
-                    audioLengthSecs = (float)data->getNumSamples() / (float)mSamplerate;
-                }
-                break;
-            }
-        }
-    }
+    // Maximum absolute times in seconds — independent of sample length so that
+    // even very short drum hits can have a long, audible fade-in / fade-out.
+    constexpr float maxAttackSecs  = 2.0f;
+    constexpr float maxDecaySecs   = 0.25f;  // very short range for punchy percussive sounds
+    constexpr float maxReleaseSecs = 2.0f;
 
-    // ADSR params are fractions of total audio length — independent of start offset.
-    // The start offset only shifts where playback begins, not how long each ADSR phase is.
-    float rawAttackSecs  = attackNorm  * audioLengthSecs;
-    float rawDecaySecs   = decayNorm   * audioLengthSecs;
-    float rawReleaseSecs = releaseNorm * audioLengthSecs;
-    
-    // Total envelope time (attack + decay + release, not including sustain duration)
-    float totalEnvelopeTime = rawAttackSecs + rawDecaySecs + rawReleaseSecs;
-    
-    // If total time exceeds available audio length, scale all phases proportionally
-    float scaleFactor = 1.0f;
-    if (totalEnvelopeTime > audioLengthSecs * 0.95f)  // Leave 5% margin
-    {
-        scaleFactor = (audioLengthSecs * 0.95f) / totalEnvelopeTime;
-    }
-    
-    // Apply scaling and ensure minimum values
-    float attackSecs  = juce::jlimit(0.001f, audioLengthSecs, rawAttackSecs  * scaleFactor);
-    float decaySecs   = juce::jlimit(0.001f, audioLengthSecs, rawDecaySecs   * scaleFactor);
-    float releaseSecs = juce::jlimit(0.001f, audioLengthSecs, rawReleaseSecs * scaleFactor);
+    // Map the 0-1 slider values to absolute time ranges
+    float attackSecs  = juce::jlimit(0.001f, maxAttackSecs,  attackNorm  * maxAttackSecs);
+    float decaySecs   = juce::jlimit(0.001f, maxDecaySecs,   decayNorm   * maxDecaySecs);
+    float releaseSecs = juce::jlimit(0.001f, maxReleaseSecs,  releaseNorm * maxReleaseSecs);
 
     DBG("ADSR Update Pad " << padIndex << ": attack=" << attackSecs << "s (norm=" << attackNorm 
-        << "), decay=" << decaySecs << "s, sustain=" << sustainNorm << ", release=" << releaseSecs 
-        << "s | Audio length=" << audioLengthSecs << "s, Scale=" << scaleFactor 
-        << ", Total=" << (attackSecs + decaySecs + releaseSecs) << "s");
+        << "), decay=" << decaySecs << "s, sustain=" << sustainNorm << ", release=" << releaseSecs << "s");
 
     // Set ADSR parameters with actual time values
     pads[(size_t)padIndex].adsr.attack = attackSecs;
