@@ -73,22 +73,38 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     mVelToAttackAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "VEL_TO_ATTACK", VelToAttackSlider);
     VelToAttackSlider.attachLabel(&VelToAttackSlider, false);
 
+    addAndMakeVisible(&DetuneSlider);
+    DetuneSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mDetuneAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "DETUNE", DetuneSlider);
+    DetuneSlider.attachLabel(&DetuneSlider, false);
+
+    addAndMakeVisible(&LowpassSlider);
+    LowpassSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mLowpassAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "LOWPASS", LowpassSlider);
+    LowpassSlider.attachLabel(&LowpassSlider, false);
+
 }
 
 void controlSlidersBlock::resized() {
 
     const auto sWidth = 70;
     const auto sHeight = 70;
-    const auto y = 25; // Increased from 15 to give more room for labels
+    const auto row1Y = 25;
+    const auto row2Y = row1Y + sHeight + 20;
     const auto gap = (getWidth() - (sWidth * 7)) / 8;
 
-    GainSlider.setBounds(gap, y, sWidth, sHeight);
-    AttackSlider.setBounds(gap * 2 + sWidth, y, sWidth, sHeight);
-    DecaySlider.setBounds(gap * 3 + sWidth * 2, y, sWidth, sHeight);
-    SustainSlider.setBounds(gap * 4 + sWidth * 3, y, sWidth, sHeight);
-    ReleaseSlider.setBounds(gap * 5 + sWidth * 4, y, sWidth, sHeight);
-    StartOffsetSlider.setBounds(gap * 6 + sWidth * 5, y, sWidth, sHeight);
-    VelToAttackSlider.setBounds(gap * 7 + sWidth * 6, y, sWidth, sHeight);
+    // Row 1: Gain, Attack, Decay, Sustain, Release, Start, Vel>Atk
+    GainSlider.setBounds(gap, row1Y, sWidth, sHeight);
+    AttackSlider.setBounds(gap * 2 + sWidth, row1Y, sWidth, sHeight);
+    DecaySlider.setBounds(gap * 3 + sWidth * 2, row1Y, sWidth, sHeight);
+    SustainSlider.setBounds(gap * 4 + sWidth * 3, row1Y, sWidth, sHeight);
+    ReleaseSlider.setBounds(gap * 5 + sWidth * 4, row1Y, sWidth, sHeight);
+    StartOffsetSlider.setBounds(gap * 6 + sWidth * 5, row1Y, sWidth, sHeight);
+    VelToAttackSlider.setBounds(gap * 7 + sWidth * 6, row1Y, sWidth, sHeight);
+
+    // Row 2: Detune, Lowpass (below Gain and Attack)
+    DetuneSlider.setBounds(gap, row2Y, sWidth, sHeight);
+    LowpassSlider.setBounds(gap * 2 + sWidth, row2Y, sWidth, sHeight);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& /*g*/)
@@ -129,5 +145,13 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "VelToAttack") {
         mVelToAttackAttachment.reset();
         mVelToAttackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, VelToAttackSlider);
+    }
+    if (sliderName == "Detune") {
+        mDetuneAttachment.reset();
+        mDetuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, DetuneSlider);
+    }
+    if (sliderName == "Lowpass") {
+        mLowpassAttachment.reset();
+        mLowpassAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, LowpassSlider);
     }
 }

@@ -165,7 +165,6 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             if (padIdx != -1)
             {
                 samplePlayed(noteNumber);
-                currentGain = updateGain(padIdx);
                 mPadSwitchedFromMidi = true;
             }
         }
@@ -175,7 +174,6 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     if (mUpdateCount > 0)
     {
         updateADSR(sampleIndex);
-        currentGain = updateGain(sampleIndex);
         mUpdateCount--;
         if (mUpdateCount == 0)
             mShouldUpdate = false;
@@ -219,11 +217,6 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     currentPositionInSeconds = static_cast<float>(mSampleCount) / static_cast<float>(mSamplerate);
     
     mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
-
-    // Apply gain from the active pad
-    if (currentGain > 0.0f && std::abs(currentGain - 1.0f) > 1e-6f) {
-        buffer.applyGain(currentGain);
-    }
 
     // Safety limiter/clamping to avoid harsh digital distortion
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
@@ -291,6 +284,21 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
     juce::BigInteger range;
     range.setRange(noteNumber, 1, true);
     
+    // Remove any existing sound for this MIDI note before adding the new one.
+    // Without this, addSound stacks duplicates and updateADSR updates the stale
+    // old sound first — leaving the new sound with no ADSR/filter settings.
+    for (int i = mSampler.getNumSounds() - 1; i >= 0; --i)
+    {
+        if (auto* existing = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+        {
+            if (existing->appliesToNote(noteNumber))
+            {
+                mSampler.removeSound(i);
+                break;
+            }
+        }
+    }
+
     auto* sound = new CustomSamplerSound(file.getFileName(), *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0);
     
     // Apply existing offset if any (from APVTS if available)
@@ -327,7 +335,6 @@ void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
 
     mSampler.noteOn(1, midiNoteNumber, velocity);
     samplePlayed(midiNoteNumber);
-    currentGain = updateGain(padIndex);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::createParameters()
@@ -350,6 +357,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("SUSTAIN" + suffix, 1), "Sustain", 0.0f, 1.0f, 1.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("START_OFFSET" + suffix, 1), "Start Offset", 0.0f, 1.0f, 0.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), "Vel>Atk", 0.0f, 1.0f, 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("DETUNE" + suffix, 1),
+            "Detune",
+            juce::NormalisableRange<float>(-24.0f, 24.0f, 0.01f),
+            0.0f,
+            "st"
+        ));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("LOWPASS" + suffix, 1),
+            "Lowpass",
+            juce::NormalisableRange<float>(200.0f, 20000.0f, 1.0f, 0.3f),
+            20000.0f,
+            "Hz"
+        ));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -396,7 +417,7 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
 
     // Maximum absolute times in seconds — independent of sample length so that
     // even very short drum hits can have a long, audible fade-in / fade-out.
-    constexpr float maxAttackSecs  = 2.0f;
+    constexpr float maxAttackSecs  = 0.5f;   // 500ms max — practical for short drum hits
     constexpr float maxDecaySecs   = 0.25f;  // very short range for punchy percussive sounds
     constexpr float maxReleaseSecs = 2.0f;
 
@@ -423,10 +444,26 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
             {
                 sound->setEnvelopeParameters(pads[(size_t)padIndex].adsr);
 
+                // Bake the pad's dB gain into the sound so each voice uses its own gain
+                float gainDb = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("GAIN" + suffix))
+                    gainDb = v->load();
+                sound->setGainLinear(juce::Decibels::decibelsToGain(gainDb, -60.0f));
+
                 float velToAtk = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("VEL_TO_ATTACK" + suffix))
                     velToAtk = v->load();
                 sound->setVelToAttack(velToAtk);
+
+                float detuneSt = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("DETUNE" + suffix))
+                    detuneSt = v->load();
+                sound->setDetuneSemitones(detuneSt);
+
+                float lowpassHz = 20000.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("LOWPASS" + suffix))
+                    lowpassHz = v->load();
+                sound->setLowpassCutoff(lowpassHz);
 
                 break;
             }

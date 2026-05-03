@@ -68,7 +68,7 @@ void waveFormEditor::paintIfFileLoaded(juce::Graphics& g)
     g.setColour(juce::Colours::red);
     Processor.thumbnail.drawChannels(g,                                      
         bounds,
-        startOffset * audioLength,             // start time
+        0.0,                                   // always draw from the beginning
         audioLength,                           // end time
         1.0f);                                 // vertical zoom
 }
