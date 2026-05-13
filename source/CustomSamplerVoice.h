@@ -38,6 +38,9 @@ public:
     void setLowpassCutoff(float hz) { lowpassCutoff = juce::jlimit(200.0f, 20000.0f, hz); }
     float getLowpassCutoff() const { return lowpassCutoff; }
 
+    void setHighpassCutoff(float hz) { highpassCutoff = juce::jlimit(20.0f, 18000.0f, hz); }
+    float getHighpassCutoff() const { return highpassCutoff; }
+
     void setGainLinear(float g) { gainLinear = juce::jlimit(0.0f, 4.0f, g); }
     float getGainLinear() const { return gainLinear; }
 
@@ -48,6 +51,7 @@ private:
     float velToAttack = 0.0f;
     float detuneSemitones = 0.0f;
     float lowpassCutoff = 20000.0f;
+    float highpassCutoff = 20.0f;
     float gainLinear = 1.0f;
     double sourceSampleRate = 44100.0;
     juce::ADSR::Parameters adsrParams;
@@ -85,6 +89,15 @@ public:
             for (auto& f : lowpassFilters)
             {
                 f.setCoefficients(coeffs);
+                f.reset();
+            }
+
+            // Set up highpass filter coefficients
+            float hpCutoff = sound->getHighpassCutoff();
+            auto hpCoeffs = juce::IIRCoefficients::makeHighPass(hostRate, (double)hpCutoff);
+            for (auto& f : highpassFilters)
+            {
+                f.setCoefficients(hpCoeffs);
                 f.reset();
             }
 
@@ -136,6 +149,16 @@ public:
             int numChannels = outputBuffer.getNumChannels();
             int sampleLength = data->getNumSamples();
 
+            // Update filter coefficients every block so knob changes take effect in real-time
+            double hostRate = getSampleRate();
+            auto lpCoeffs = juce::IIRCoefficients::makeLowPass(hostRate, (double)playingSound->getLowpassCutoff());
+            auto hpCoeffs = juce::IIRCoefficients::makeHighPass(hostRate, (double)playingSound->getHighpassCutoff());
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                lowpassFilters[ch].setCoefficients(lpCoeffs);
+                highpassFilters[ch].setCoefficients(hpCoeffs);
+            }
+
             for (int i = 0; i < numSamples; ++i)
             {
                 int pos0 = static_cast<int>(currentSamplePos);
@@ -168,6 +191,7 @@ public:
                     float sample = s0 + frac * (s1 - s0);
                     int filterIdx = juce::jmin(channel, 1);
                     sample = lowpassFilters[filterIdx].processSingleSampleRaw(sample);
+                    sample = highpassFilters[filterIdx].processSingleSampleRaw(sample);
                     outputBuffer.addSample(channel, startSample + i, sample * envelopeValue);
                 }
                 currentSamplePos += pitchRatio;
@@ -185,4 +209,5 @@ private:
     float currentGain = 1.0f;
     juce::ADSR adsr;
     juce::IIRFilter lowpassFilters[2];
+    juce::IIRFilter highpassFilters[2];
 };

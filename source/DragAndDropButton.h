@@ -25,8 +25,9 @@ public:
     void paint(juce::Graphics&) override;
 
     bool isInterestedInFileDrag(const juce::StringArray&) override;
-
     void filesDropped(const juce::StringArray&, int, int) override;
+
+    std::function<void()> onFileDropped;
 
     //void DragAndDropButton::setMidinote(int m);
 

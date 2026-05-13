@@ -264,6 +264,28 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
     return new DrumSamplerAudioProcessor();
 }
 
+void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
+{
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+
+    auto setDefault = [&](const juce::String& id, float value)
+    {
+        if (auto* param = mAPVSTATE.getParameter(id + suffix))
+            param->setValueNotifyingHost(param->convertTo0to1(value));
+    };
+
+    setDefault("GAIN",         0.0f);
+    setDefault("ATTACK",       0.0f);
+    setDefault("DECAY",        0.5f);
+    setDefault("SUSTAIN",      1.0f);
+    setDefault("RELEASE",      0.2f);
+    setDefault("START_OFFSET", 0.0f);
+    setDefault("VEL_TO_ATTACK",0.0f);
+    setDefault("DETUNE",       0.0f);
+    setDefault("LOWPASS",      20000.0f);
+    setDefault("HIGHPASS",     20.0f);
+}
+
 void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber, juce::String /*buttonName*/)
 {   
     auto file = juce::File(path);
@@ -272,6 +294,12 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
 
     mFormatReader = mFormatManager.createReaderFor(file);
     if (mFormatReader == nullptr) return;
+
+    // If this pad had no sample before, reset all its parameters to defaults
+    // so leftover values from a previous session don't bleed in.
+    bool wasEmpty = !pads[static_cast<size_t>(padIndex)].sampleFile.existsAsFile();
+    if (wasEmpty)
+        resetPadParametersToDefault(padIndex);
     
     mSampleRateInt = static_cast<int>(mFormatReader->sampleRate);
     totalLength = static_cast<int>(mFormatReader->lengthInSamples);
@@ -371,6 +399,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
             20000.0f,
             "Hz"
         ));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("HIGHPASS" + suffix, 1),
+            "Highpass",
+            juce::NormalisableRange<float>(20.0f, 18000.0f, 1.0f, 0.3f),
+            20.0f,
+            "Hz"
+        ));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -464,6 +499,11 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("LOWPASS" + suffix))
                     lowpassHz = v->load();
                 sound->setLowpassCutoff(lowpassHz);
+
+                float highpassHz = 20.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("HIGHPASS" + suffix))
+                    highpassHz = v->load();
+                sound->setHighpassCutoff(highpassHz);
 
                 break;
             }

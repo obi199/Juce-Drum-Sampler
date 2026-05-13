@@ -110,6 +110,7 @@ public:
 
     void setStartOffsetForNote(int midiNoteNumber, float offset);
     float getStartOffsetForNote(int midiNoteNumber) const;
+    void resetPadParametersToDefault(int padIndex);
      
 private:
     //==============================================================================

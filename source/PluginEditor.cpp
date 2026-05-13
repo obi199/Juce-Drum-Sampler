@@ -31,6 +31,7 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
 
         auto* btnPtr = btn.get();
         btn->onClick = [this, btnPtr, midiNote]() { ButtonClicked(btnPtr, midiNote); };
+        btn->onFileDropped = [this, i]() { switchTopad(i); };
 
         addAndMakeVisible(btnPtr);
         padButtons.push_back(std::move(btn));
@@ -137,6 +138,7 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("VEL_TO_ATTACK" + suffix, "VelToAttack");
     CBlock.changeSliderParameter("DETUNE" + suffix, "Detune");
     CBlock.changeSliderParameter("LOWPASS" + suffix, "Lowpass");
+    CBlock.changeSliderParameter("HIGHPASS" + suffix, "Highpass");
 
     // Update ADSR for this pad
     audioProcessor.updateADSR(padIndex);

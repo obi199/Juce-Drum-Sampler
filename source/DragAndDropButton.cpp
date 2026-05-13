@@ -39,6 +39,7 @@ void DragAndDropButton::filesDropped(const juce::StringArray& files, int /*x*/, 
             DBG("File dropped: " << filename);
             DBG("Midinote: " << midiNote);
             Processor.loadFile(file.getFullPathName(), midiNote, buttonName);
+            if (onFileDropped) onFileDropped();
         }
     }
     repaint();
