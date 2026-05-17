@@ -18,6 +18,7 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     addAndMakeVisible(&waveComponent);
     addAndMakeVisible(&position);
     addAndMakeVisible(&start);
+    addAndMakeVisible(&end);
     addAndMakeVisible(&adsrOverlay);  // on top — hitTest passes through when not near a handle
 
     // Create 16 pads dynamically
@@ -99,6 +100,7 @@ void DrumSamplerAudioProcessorEditor::resized()
     waveComponent.setBounds(thumbnailBounds);
     position.setBounds(thumbnailBounds);
     start.setBounds(thumbnailBounds);
+    end.setBounds(thumbnailBounds);
     adsrOverlay.setBounds(thumbnailBounds);
 
     // Controls below the waveform
@@ -130,11 +132,6 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
 
     // Update the slider attachment to the new pad's parameters
     CBlock.changeSliderParameter("GAIN" + suffix, "Gain");
-    CBlock.changeSliderParameter("ATTACK" + suffix, "Attack");
-    CBlock.changeSliderParameter("DECAY" + suffix, "Decay");
-    CBlock.changeSliderParameter("RELEASE" + suffix, "Release");
-    CBlock.changeSliderParameter("SUSTAIN" + suffix, "Sustain");
-    CBlock.changeSliderParameter("START_OFFSET" + suffix, "StartOffset");
     CBlock.changeSliderParameter("VEL_TO_ATTACK" + suffix, "VelToAttack");
     CBlock.changeSliderParameter("DETUNE" + suffix, "Detune");
     CBlock.changeSliderParameter("LOWPASS" + suffix, "Lowpass");
@@ -147,6 +144,9 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     int noteNumber = MIDI_NOTES[padIndex];
     float offset = audioProcessor.getStartOffsetForNote(noteNumber);
     start.setNormalizedOffset(offset);
+
+    float endOffset = audioProcessor.getEndOffsetForNote(noteNumber);
+    end.setNormalizedOffset(endOffset);
 }
 
 void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, int noteNumber)
@@ -167,7 +167,6 @@ void DrumSamplerAudioProcessorEditor::timerCallback()
         switchTopad(padIndex);
     }
 }
-
 
 
 

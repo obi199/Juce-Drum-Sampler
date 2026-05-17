@@ -58,12 +58,17 @@ void waveFormEditor::paintIfFileLoaded(juce::Graphics& g)
     if (auto* v = Processor.getAPVTS().getRawParameterValue("START_OFFSET" + suffix))
         startOffset = v->load();
 
+    float endOffset = 1.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("END_OFFSET" + suffix))
+        endOffset = v->load();
+
     auto bounds = getLocalBounds();
     auto startX = startOffset * (float)bounds.getWidth();
+    auto endX   = endOffset   * (float)bounds.getWidth();
 
     // Fill only the played part background with white
     g.setColour(juce::Colours::white);
-    g.fillRect(bounds.withLeft((int)startX));
+    g.fillRect(bounds.withLeft((int)startX).withRight((int)endX));
 
     g.setColour(juce::Colours::red);
     Processor.thumbnail.drawChannels(g,                                      
@@ -155,10 +160,13 @@ void startLine::timerCallback()
 
 void startLine::paint(juce::Graphics& g)
 {
-    
-    g.setColour(juce::Colours::black);
-    g.drawLine(lengthLineX, 0.0f, lengthLineX,(float)getHeight(), 3.0f);
+    g.setColour(juce::Colours::green);
+    g.drawLine(lengthLineX, 0.0f, lengthLineX, (float)getHeight(), 5.0f);
+}
 
+bool startLine::hitTest(int x, int /*y*/)
+{
+    return std::abs((float)x - lengthLineX) <= 8.0f;
 }
 
 
@@ -221,6 +229,70 @@ void startLine::setNormalizedOffset(float offsetRatio01)
 }
 
 
+// End Line Class==============================================================================
+endLine::endLine(DrumSamplerAudioProcessor& p) : Processor(p)
+{
+    startTimer(30);
+}
+
+endLine::~endLine()
+{
+    stopTimer();
+}
+
+void endLine::timerCallback()
+{
+    int currentPad = Processor.getCurrentPadIndex();
+    auto suffix = (currentPad == 0) ? juce::String("") : juce::String(currentPad + 1);
+
+    if (auto* param = Processor.getAPVTS().getRawParameterValue("END_OFFSET" + suffix))
+    {
+        float currentKnobValue = param->load();
+        if (std::abs(currentKnobValue - lastKnobValue) > 0.0001f)
+        {
+            lastKnobValue = currentKnobValue;
+            setNormalizedOffset(currentKnobValue);
+        }
+    }
+}
+
+void endLine::paint(juce::Graphics& g)
+{
+    g.setColour(juce::Colours::green);
+    g.drawLine(lengthLineX, 0.0f, lengthLineX, (float)getHeight(), 5.0f);
+}
+
+bool endLine::hitTest(int x, int /*y*/)
+{
+    return std::abs((float)x - lengthLineX) <= 8.0f;
+}
+
+void endLine::mouseDrag(const juce::MouseEvent& event)
+{
+    lengthLineX = juce::jlimit(0.0f, (float)getWidth(), (float)event.x);
+
+    auto audioLength = (float)Processor.thumbnail.getTotalLength();
+    float ratio = 1.0f;
+    if (audioLength > 0.0f)
+        ratio = juce::jlimit(0.0001f, 1.0f, (lengthLineX / (float)getWidth()));
+
+    int currentPad = Processor.getCurrentPadIndex();
+    if (currentPad >= 0 && currentPad < NUM_PADS)
+    {
+        Processor.setEndOffsetForNote(MIDI_NOTES[currentPad], ratio);
+    }
+
+    repaint();
+}
+
+void endLine::setNormalizedOffset(float offsetRatio01)
+{
+    float r = juce::jlimit(0.0f, 1.0f, offsetRatio01);
+    lengthLineX = r * (float)getWidth();
+    repaint();
+}
+
+
 // ADSROverlay ============================================================================
 
 ADSROverlay::ADSROverlay(DrumSamplerAudioProcessor& p) : Processor(p)
@@ -277,31 +349,48 @@ float ADSROverlay::startX()
 float ADSROverlay::attackX()
 {
     // param 0-1 maps to time fraction of TOTAL audio, visual origin shifted to startX
+    // A minimum gap of 12px is kept so the attack handle never sits on the start line.
     float sx = startX();
     float w  = (float)getWidth();
-    return juce::jlimit(sx, w, sx + getParam("ATTACK") * w);
+    constexpr float kMinGap = 12.0f;
+    return juce::jlimit(sx + kMinGap, w, sx + kMinGap + getParam("ATTACK") * w);
 }
 
 float ADSROverlay::decayX()
 {
-    float sx = startX();
+    // F handle = where the fade-out STARTS (FADE_START is a position 0-1 on the waveform)
+    int padIndex = Processor.getCurrentPadIndex();
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+    float fadeStart = 0.8f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("FADE_START" + suffix))
+        fadeStart = v->load();
+    float ax = attackX();
     float w  = (float)getWidth();
-    return juce::jlimit(sx, w, sx + (getParam("ATTACK") + getParam("DECAY")) * w);
+    return juce::jmax(ax + 12.0f, fadeStart * w);
 }
 
-float ADSROverlay::sustainY()
+float ADSROverlay::fadeEndX()
 {
-    return juce::jlimit(0.0f, (float)getHeight(),
-                        (1.0f - getParam("SUSTAIN")) * (float)getHeight());
+    int padIndex = Processor.getCurrentPadIndex();
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+    float fadeEnd = 1.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("FADE_END" + suffix))
+        fadeEnd = v->load();
+    float dx = decayX();
+    float ex = endX();
+    return juce::jlimit(dx + 12.0f, ex, fadeEnd * (float)getWidth());
 }
 
-// Release is shown from the right edge; this returns where the release phase begins.
-float ADSROverlay::releaseX()
+float ADSROverlay::endX()
 {
-    // param 0-1 maps to time fraction of TOTAL audio, anchored from the right edge
-    float sx = startX();
-    float w  = (float)getWidth();
-    return juce::jlimit(sx, w, w - getParam("RELEASE") * w);
+    int padIndex = Processor.getCurrentPadIndex();
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+    float endOffset = 1.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("END_OFFSET" + suffix))
+        endOffset = v->load();
+    // Clamp so end is always to the right of the fade start
+    float dx = decayX();
+    return juce::jmax(dx + 12.0f, endOffset * (float)getWidth());
 }
 
 // ---- Hit testing ----
@@ -310,17 +399,11 @@ ADSROverlay::DragHandle ADSROverlay::hitTestForHandle(float x, float y)
 {
     float ax  = attackX();
     float dx  = decayX();
-    float sy  = sustainY();
-    float rx  = juce::jmax(dx, releaseX());  // release start can't be before decay end
+    float fex = fadeEndX();
 
-    // Vertical lines: tested by x proximity
-    if (std::abs(x - ax) < kHitTolerance)  return DragHandle::Attack;
-    if (std::abs(x - dx) < kHitTolerance)  return DragHandle::Decay;
-    if (std::abs(x - rx) < kHitTolerance)  return DragHandle::Release;
-
-    // Sustain horizontal line: test by y proximity while x is between decay and release
-    if (std::abs(y - sy) < kHitTolerance && x > dx && x < rx)
-        return DragHandle::Sustain;
+    if (std::abs(x - ax)  < kHitTolerance)  return DragHandle::Attack;
+    if (std::abs(x - dx)  < kHitTolerance)  return DragHandle::Decay;
+    if (std::abs(x - fex) < kHitTolerance)  return DragHandle::FadeEnd;
 
     return DragHandle::None;
 }
@@ -341,10 +424,8 @@ void ADSROverlay::mouseMove(const juce::MouseEvent& event)
     {
         case DragHandle::Attack:
         case DragHandle::Decay:
-        case DragHandle::Release:
+        case DragHandle::FadeEnd:
             setMouseCursor(juce::MouseCursor::LeftRightResizeCursor); break;
-        case DragHandle::Sustain:
-            setMouseCursor(juce::MouseCursor::UpDownResizeCursor); break;
         case DragHandle::None:
             setMouseCursor(juce::MouseCursor::NormalCursor); break;
     }
@@ -358,41 +439,43 @@ void ADSROverlay::mouseDown(const juce::MouseEvent& event)
 void ADSROverlay::mouseDrag(const juce::MouseEvent& event)
 {
     float x = juce::jlimit(0.0f, (float)getWidth(),  (float)event.x);
-    float y = juce::jlimit(0.0f, (float)getHeight(), (float)event.y);
     float w = (float)getWidth();
-    float h = (float)getHeight();
     float sx = startX();
+    constexpr float kMinGap = 12.0f;
 
     switch (activeDrag)
     {
         case DragHandle::Attack:
         {
-            // Attack: distance from startX as fraction of TOTAL width
-            float newVal = juce::jlimit(0.0f, 1.0f, (x - sx) / w);
+            float newVal = juce::jlimit(0.0f, 1.0f, (x - sx - kMinGap) / w);
             setParam("ATTACK", newVal);
             break;
         }
         case DragHandle::Decay:
         {
-            // Decay: portion after attack, as fraction of TOTAL width
-            float attack = getParam("ATTACK");
-            float newVal = juce::jlimit(0.0f, 1.0f, (x - sx) / w - attack);
-            setParam("DECAY", newVal);
+            float ax = attackX();
+            float minX = ax + 12.0f;
+            float clampedX = juce::jlimit(minX, w, x);
+            float newVal = juce::jlimit(0.0f, 1.0f, clampedX / w);
+            int padIndex = Processor.getCurrentPadIndex();
+            auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+            if (auto* p = Processor.getAPVTS().getParameter("FADE_START" + suffix))
+                p->setValueNotifyingHost(newVal);
+            Processor.updateADSR(padIndex);
             break;
         }
-        case DragHandle::Sustain:
+        case DragHandle::FadeEnd:
         {
-            // Sustain level (inverted Y: bottom=0, top=1)
-            float normY = y / h;
-            float newVal = juce::jlimit(0.0f, 1.0f, 1.0f - normY);
-            setParam("SUSTAIN", newVal);
-            break;
-        }
-        case DragHandle::Release:
-        {
-            // Release: distance from right edge as fraction of TOTAL width
-            float newVal = juce::jlimit(0.0f, 1.0f, (w - x) / w);
-            setParam("RELEASE", newVal);
+            // Clamp between decayX and endX
+            float dx = decayX();
+            float ex = endX();
+            float clampedX = juce::jlimit(dx + 12.0f, ex, x);
+            float newVal = juce::jlimit(0.0f, 1.0f, clampedX / w);
+            int padIndex = Processor.getCurrentPadIndex();
+            auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+            if (auto* p = Processor.getAPVTS().getParameter("FADE_END" + suffix))
+                p->setValueNotifyingHost(newVal);
+            Processor.updateADSR(padIndex);
             break;
         }
         case DragHandle::None:
@@ -415,21 +498,19 @@ void ADSROverlay::paint(juce::Graphics& g)
     if (Processor.thumbnail.getNumChannels() == 0)
         return;   // nothing loaded yet
 
-    float w  = (float)getWidth();
-    float h  = (float)getHeight();
-    float sx = startX();
-    float ax = attackX();
-    float dx = decayX();
-    float sy = sustainY();
-    float rx = juce::jmax(dx, releaseX());   // release start can't be before decay end
+    float w   = (float)getWidth();
+    float h   = (float)getHeight();
+    float sx  = startX();
+    float ax  = attackX();
+    float dx  = decayX();
+    float fex = fadeEndX();   // where the fade reaches zero
 
-    // --- Envelope shape ---
+    // --- Envelope shape: ramp up → flat at full → fade to zero at fade-end ---
     juce::Path env;
-    env.startNewSubPath(sx, h);   // start at sample start point
-    env.lineTo(ax, 0.0f);            // attack peak
-    env.lineTo(dx, sy);              // decay to sustain level
-    env.lineTo(rx, sy);              // sustain flat
-    env.lineTo(w,  h);               // release to zero
+    env.startNewSubPath(sx,  h);    // silent at start
+    env.lineTo(ax,  0.0f);          // ramp up to peak
+    env.lineTo(dx,  0.0f);          // flat at full volume
+    env.lineTo(fex, h);             // fade to zero
     env.closeSubPath();
 
     g.setColour(juce::Colours::red.withAlpha(0.1f));
@@ -437,25 +518,13 @@ void ADSROverlay::paint(juce::Graphics& g)
     g.setColour(juce::Colours::red.withAlpha(0.5f));
     g.strokePath(env, juce::PathStrokeType(1.2f));
 
-    // --- Draw angled handle lines that follow the envelope slope ---
-    
-    // Attack line: diagonal from startX to peak (angled based on attack duration)
+    // --- Handle lines ---
     g.setColour(juce::Colours::red);
-    g.drawLine(sx, h, ax, 0.0f, 2.0f);
-    
-    // Decay line: diagonal from peak to sustain level (angled based on decay duration)
-    g.setColour(juce::Colours::red);
-    g.drawLine(ax, 0.0f, dx, sy, 2.0f);
-    
-    // Sustain line: horizontal flat line
-    g.setColour(juce::Colours::red);
-    g.drawLine(dx, sy, rx, sy, 2.0f);
-    
-    // Release line: diagonal from sustain to end (angled based on release duration)
-    g.setColour(juce::Colours::red);
-    g.drawLine(rx, sy, w, h, 2.0f);
+    g.drawLine(sx,  h,    ax,  0.0f, 2.0f);  // attack ramp
+    g.drawLine(ax,  0.0f, dx,  0.0f, 2.0f);  // flat plateau
+    g.drawLine(dx,  0.0f, fex, h,    2.0f);  // fade-out slope
 
-    // --- Handle circles with labels ---
+    // --- Handle circles ---
     const auto drawHandleCircle = [&](float hx, float hy,
                                        juce::Colour colour,
                                        const juce::String& label)
@@ -463,7 +532,6 @@ void ADSROverlay::paint(juce::Graphics& g)
         g.setColour(colour);
         g.fillEllipse(hx - kHandleRadius, hy - kHandleRadius,
                       kHandleRadius * 2.0f, kHandleRadius * 2.0f);
-
         g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
         g.setColour(juce::Colours::white);
         g.drawText(label, (int)(hx - kHandleRadius), (int)(hy - kHandleRadius),
@@ -471,10 +539,8 @@ void ADSROverlay::paint(juce::Graphics& g)
                    juce::Justification::centred, false);
     };
 
-    // Draw handle circles at the key points
-    drawHandleCircle(ax,          0.0f,  juce::Colours::red, "A");  // Attack  – red
-    drawHandleCircle(dx,          sy,    juce::Colours::red, "D");  // Decay   – red
-    drawHandleCircle((dx + rx) * 0.5f, sy, juce::Colours::red, "S");  // Sustain – red
-    drawHandleCircle(rx,          sy,    juce::Colours::red, "R");  // Release – red
+    drawHandleCircle(ax,  0.0f, juce::Colours::orangered, "A");   // attack end
+    drawHandleCircle(dx,  0.0f, juce::Colours::orangered, "F");   // fade start
+    drawHandleCircle(fex, h,    juce::Colours::orangered, "E");   // fade end
 }
 

@@ -64,6 +64,7 @@ public:
     ~startLine() override;
 
     void paint(juce::Graphics&) override;
+    bool hitTest(int x, int y) override;
     void mouseDrag(const juce::MouseEvent& event) override;
     void timerCallback() override;  // Poll for parameter changes
     float getStartPosInSec() { return newPositionInSeconds; }
@@ -76,6 +77,27 @@ private:
     float lastKnobValue = -1.0f;  // Track last seen knob value to detect changes
     DrumSamplerAudioProcessor& Processor;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(startLine)
+};
+
+
+class endLine : public juce::Component,
+    private juce::Timer
+{
+public:
+    endLine(DrumSamplerAudioProcessor&);
+    ~endLine() override;
+
+    void paint(juce::Graphics&) override;
+    bool hitTest(int x, int y) override;
+    void mouseDrag(const juce::MouseEvent& event) override;
+    void timerCallback() override;
+    void setNormalizedOffset(float offsetRatio01);
+
+private:
+    float lengthLineX = 0.0f;
+    float lastKnobValue = -1.0f;
+    DrumSamplerAudioProcessor& Processor;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(endLine)
 };
 
 
@@ -98,7 +120,7 @@ public:
 private:
     DrumSamplerAudioProcessor& Processor;
 
-    enum class DragHandle { None, Attack, Decay, Sustain, Release };
+    enum class DragHandle { None, Attack, Decay, FadeEnd };
     DragHandle activeDrag = DragHandle::None;
 
     // APVTS helpers
@@ -106,11 +128,11 @@ private:
     void  setParam(const juce::String& name, float value);
 
     // Pixel positions computed from current APVTS values
-    float startX();     // x where playback begins (based on START_OFFSET param)
+    float startX();
     float attackX();
     float decayX();
-    float sustainY();
-    float releaseX();   // x where the release phase begins (from right side)
+    float fadeEndX();   // x where the fade finishes (FADE_END param)
+    float endX();       // x where playback hard-stops (END_OFFSET param)
 
     DragHandle hitTestForHandle(float x, float y);
 

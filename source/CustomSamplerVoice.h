@@ -26,6 +26,12 @@ public:
     void setStartOffset(float newOffset) { startOffset = juce::jlimit(0.0f, 1.0f, newOffset); }
     float getStartOffset() const { return startOffset; }
 
+    void setEndOffset(float newOffset) { endOffset = juce::jlimit(0.0f, 1.0f, newOffset); }
+    float getEndOffset() const { return endOffset; }
+
+    void setFadeStartOffset(float newOffset) { fadeStartOffset = juce::jlimit(0.0f, 1.0f, newOffset); }
+    float getFadeStartOffset() const { return fadeStartOffset; }
+
     void setEnvelopeParameters(const juce::ADSR::Parameters& newParams) { adsrParams = newParams; }
     const juce::ADSR::Parameters& getEnvelopeParameters() const { return adsrParams; }
 
@@ -48,6 +54,8 @@ public:
 
 private:
     float startOffset = 0.0f;
+    float endOffset = 1.0f;
+    float fadeStartOffset = 1.0f;  // position (0-1) where fade-out begins; 1.0 = no fade
     float velToAttack = 0.0f;
     float detuneSemitones = 0.0f;
     float lowpassCutoff = 20000.0f;
@@ -69,6 +77,7 @@ public:
     {
         juce::SamplerVoice::startNote(midiNoteNumber, velocity, s, currentPitchWheelPosition);
         currentSamplePos = 0.0;
+        fadeTriggered = false;
         // Apply a velocity curve: velocity^0.5 gives a more natural, louder response
         // at high velocities compared to linear mapping
         currentGain = std::pow(velocity, 0.5f);
@@ -136,6 +145,7 @@ public:
             clearCurrentNote();
             adsr.reset();
             currentSamplePos = 0.0;
+            fadeTriggered = false;
         }
     }
 
@@ -148,6 +158,8 @@ public:
 
             int numChannels = outputBuffer.getNumChannels();
             int sampleLength = data->getNumSamples();
+            int endSamplePos   = static_cast<int>(playingSound->getEndOffset()       * static_cast<float>(sampleLength));
+            int fadeSamplePos  = static_cast<int>(playingSound->getFadeStartOffset() * static_cast<float>(sampleLength));
 
             // Update filter coefficients every block so knob changes take effect in real-time
             double hostRate = getSampleRate();
@@ -162,11 +174,18 @@ public:
             for (int i = 0; i < numSamples; ++i)
             {
                 int pos0 = static_cast<int>(currentSamplePos);
-                if (pos0 >= sampleLength - 1)
+                if (pos0 >= sampleLength - 1 || pos0 >= endSamplePos)
                 {
                     clearCurrentNote();
                     adsr.reset();
                     break;
+                }
+
+                // Trigger fade-out (release) when we reach the fade-start position
+                if (!fadeTriggered && pos0 >= fadeSamplePos)
+                {
+                    adsr.noteOff();
+                    fadeTriggered = true;
                 }
 
                 float envelopeValue = adsr.getNextSample() * currentGain;
@@ -205,6 +224,7 @@ public:
 
 private:
     double currentSamplePos = 0.0;
+    bool fadeTriggered = false;
     double pitchRatio = 1.0;
     float currentGain = 1.0f;
     juce::ADSR adsr;

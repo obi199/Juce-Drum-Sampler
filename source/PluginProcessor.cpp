@@ -280,10 +280,37 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("SUSTAIN",      1.0f);
     setDefault("RELEASE",      0.2f);
     setDefault("START_OFFSET", 0.0f);
+    setDefault("END_OFFSET",   1.0f);
+    setDefault("FADE_START",   0.8f);
+    setDefault("FADE_END",     1.0f);
     setDefault("VEL_TO_ATTACK",0.0f);
     setDefault("DETUNE",       0.0f);
     setDefault("LOWPASS",      20000.0f);
     setDefault("HIGHPASS",     20.0f);
+}
+
+void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
+{
+    int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
+    if (padIndex == -1) return;
+
+    // Remove the sampler sound for this note
+    for (int i = mSampler.getNumSounds() - 1; i >= 0; --i)
+    {
+        if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+        {
+            if (sound->appliesToNote(midiNoteNumber))
+            {
+                mSampler.removeSound(i);
+                break;
+            }
+        }
+    }
+
+    // Clear the pad file reference and reset parameters
+    pads[static_cast<size_t>(padIndex)].sampleFile = juce::File{};
+    pads[static_cast<size_t>(padIndex)].startOffset = 0.0f;
+    resetPadParametersToDefault(padIndex);
 }
 
 void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber, juce::String /*buttonName*/)
@@ -332,6 +359,16 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
     // Apply existing offset if any (from APVTS if available)
     float offset = getStartOffsetForNote(noteNumber);
     sound->setStartOffset(offset);
+    float endOff = getEndOffsetForNote(noteNumber);
+    sound->setEndOffset(endOff);
+    {
+        int padIndex2 = getPadIndexFromMidiNote(noteNumber);
+        auto suffix2 = (padIndex2 == 0) ? juce::String("") : juce::String(padIndex2 + 1);
+        float fadeStart = 0.8f;
+        if (auto* v = mAPVSTATE.getRawParameterValue("FADE_START" + suffix2))
+            fadeStart = v->load();
+        sound->setFadeStartOffset(fadeStart);
+    }
     
     mSampler.addSound(sound);
     updateADSR(padIndex);
@@ -356,6 +393,14 @@ void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
             if (sound->appliesToNote(midiNoteNumber))
             {
                 sound->setStartOffset(offset);
+                sound->setEndOffset(getEndOffsetForNote(midiNoteNumber));
+                {
+                    auto suffix2 = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+                    float fadeStart = 0.8f;
+                    if (auto* v = mAPVSTATE.getRawParameterValue("FADE_START" + suffix2))
+                        fadeStart = v->load();
+                    sound->setFadeStartOffset(fadeStart);
+                }
                 break;
             }
         }
@@ -384,6 +429,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("RELEASE" + suffix, 1), "Release", 0.0f, 1.0f, 0.2f)); // 0.2 = 200ms with 1s max
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("SUSTAIN" + suffix, 1), "Sustain", 0.0f, 1.0f, 1.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("START_OFFSET" + suffix, 1), "Start Offset", 0.0f, 1.0f, 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("END_OFFSET" + suffix, 1), "End Offset", 0.0f, 1.0f, 1.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("FADE_START" + suffix, 1), "Fade Start", 0.0f, 1.0f, 0.8f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("FADE_END" + suffix, 1), "Fade End", 0.0f, 1.0f, 1.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), "Vel>Atk", 0.0f, 1.0f, 0.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("DETUNE" + suffix, 1),
@@ -435,39 +483,48 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
     
     auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
     
-    // Get normalized 0-1 values from APVTS with safe fallbacks
+    // Get attack from APVTS
     float attackNorm = 0.02f;
-    float decayNorm = 0.5f;
-    float sustainNorm = 1.0f;
-    float releaseNorm = 0.2f;
-    
-    if (auto* p = mAPVSTATE.getRawParameterValue("ATTACK" + suffix)) 
+    if (auto* p = mAPVSTATE.getRawParameterValue("ATTACK" + suffix))
         attackNorm = juce::jlimit(0.0f, 1.0f, p->load());
-    if (auto* p = mAPVSTATE.getRawParameterValue("DECAY" + suffix)) 
-        decayNorm = juce::jlimit(0.0f, 1.0f, p->load());
-    if (auto* p = mAPVSTATE.getRawParameterValue("SUSTAIN" + suffix)) 
-        sustainNorm = juce::jlimit(0.0f, 1.0f, p->load());
-    if (auto* p = mAPVSTATE.getRawParameterValue("RELEASE" + suffix)) 
-        releaseNorm = juce::jlimit(0.0f, 1.0f, p->load());
 
-    // Maximum absolute times in seconds — independent of sample length so that
-    // even very short drum hits can have a long, audible fade-in / fade-out.
-    constexpr float maxAttackSecs  = 0.5f;   // 500ms max — practical for short drum hits
-    constexpr float maxDecaySecs   = 0.25f;  // very short range for punchy percussive sounds
-    constexpr float maxReleaseSecs = 2.0f;
+    constexpr float maxAttackSecs = 0.5f;
+    float attackSecs = juce::jlimit(0.001f, maxAttackSecs, attackNorm * maxAttackSecs);
 
-    // Map the 0-1 slider values to absolute time ranges
-    float attackSecs  = juce::jlimit(0.001f, maxAttackSecs,  attackNorm  * maxAttackSecs);
-    float decaySecs   = juce::jlimit(0.001f, maxDecaySecs,   decayNorm   * maxDecaySecs);
-    float releaseSecs = juce::jlimit(0.001f, maxReleaseSecs,  releaseNorm * maxReleaseSecs);
+    // Compute release time from the distance between FADE_START and END_OFFSET positions
+    float fadeStart = 0.8f;
+    float fadeEnd   = 1.0f;
+    if (auto* p = mAPVSTATE.getRawParameterValue("FADE_START" + suffix))
+        fadeStart = p->load();
+    if (auto* p = mAPVSTATE.getRawParameterValue("FADE_END" + suffix))
+        fadeEnd = p->load();
 
-    DBG("ADSR Update Pad " << padIndex << ": attack=" << attackSecs << "s (norm=" << attackNorm 
-        << "), decay=" << decaySecs << "s, sustain=" << sustainNorm << ", release=" << releaseSecs << "s");
+    // Get sample duration in seconds from the loaded sound (if available)
+    float sampleDurationSecs = 1.0f;
+    for (int i = 0; i < mSampler.getNumSounds(); ++i)
+    {
+        if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+        {
+            if (sound->appliesToNote(pads[(size_t)padIndex].midiNote))
+            {
+                if (auto* data = sound->getAudioData())
+                    sampleDurationSecs = static_cast<float>(data->getNumSamples()) / static_cast<float>(mSamplerate);
+                break;
+            }
+        }
+    }
 
-    // Set ADSR parameters with actual time values
-    pads[(size_t)padIndex].adsr.attack = attackSecs;
-    pads[(size_t)padIndex].adsr.decay = decaySecs;
-    pads[(size_t)padIndex].adsr.sustain = sustainNorm;  // Sustain is level (0-1), not time
+    float fadeSpan    = juce::jmax(0.0f, fadeEnd - fadeStart);
+    float releaseSecs = juce::jmax(0.001f, fadeSpan * sampleDurationSecs);
+
+    DBG("ADSR Pad " << padIndex << ": attack=" << attackSecs << "s, release=" << releaseSecs << "s");
+
+    // sustain=1.0 so volume holds at full after attack.
+    // noteOff is triggered inside the voice when position reaches FADE_START.
+    // release = time from FADE_START to END_OFFSET.
+    pads[(size_t)padIndex].adsr.attack  = attackSecs;
+    pads[(size_t)padIndex].adsr.decay   = 0.001f;
+    pads[(size_t)padIndex].adsr.sustain = 1.0f;
     pads[(size_t)padIndex].adsr.release = releaseSecs;
 
     // Apply to the relevant sound
@@ -504,6 +561,21 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("HIGHPASS" + suffix))
                     highpassHz = v->load();
                 sound->setHighpassCutoff(highpassHz);
+
+                float startOff = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))
+                    startOff = v->load();
+                sound->setStartOffset(startOff);
+
+                float endOff = 1.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("END_OFFSET" + suffix))
+                    endOff = v->load();
+                sound->setEndOffset(endOff);
+
+                float fadeStart = 0.8f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("FADE_START" + suffix))
+                    fadeStart = v->load();
+                sound->setFadeStartOffset(fadeStart);
 
                 break;
             }
@@ -549,6 +621,68 @@ float DrumSamplerAudioProcessor::getStartOffsetForNote(int midiNoteNumber) const
         return pads[static_cast<size_t>(padIndex)].startOffset;
     }
     return 0.0f;
+}
+
+void DrumSamplerAudioProcessor::setEndOffsetForNote(int midiNoteNumber, float offset)
+{
+    int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
+    if (padIndex != -1)
+    {
+        auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+        if (auto* param = mAPVSTATE.getParameter("END_OFFSET" + suffix))
+            param->setValueNotifyingHost(offset);
+
+        for (int i = 0; i < mSampler.getNumSounds(); ++i)
+        {
+            if (auto* sound = dynamic_cast<CustomSamplerSound*>(mSampler.getSound(i).get()))
+            {
+                if (sound->appliesToNote(midiNoteNumber))
+                {
+                    sound->setEndOffset(offset);
+                    break;
+                }
+            }
+        }
+
+        // Recompute release time since it depends on END_OFFSET
+        updateADSR(padIndex);
+    }
+}
+
+float DrumSamplerAudioProcessor::getEndOffsetForNote(int midiNoteNumber) const
+{
+    int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
+    if (padIndex != -1)
+    {
+        auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+        if (auto* param = mAPVSTATE.getRawParameterValue("END_OFFSET" + suffix))
+            return param->load();
+    }
+    return 1.0f;
+}
+
+float DrumSamplerAudioProcessor::getFadeStartForNote(int midiNoteNumber) const
+{
+    int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
+    if (padIndex != -1)
+    {
+        auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+        if (auto* param = mAPVSTATE.getRawParameterValue("FADE_START" + suffix))
+            return param->load();
+    }
+    return 0.8f;
+}
+
+float DrumSamplerAudioProcessor::getFadeEndForNote(int midiNoteNumber) const
+{
+    int padIndex = getPadIndexFromMidiNote(midiNoteNumber);
+    if (padIndex != -1)
+    {
+        auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+        if (auto* param = mAPVSTATE.getRawParameterValue("FADE_END" + suffix))
+            return param->load();
+    }
+    return 1.0f;
 }
 
 int DrumSamplerAudioProcessor::samplePlayed(int midiNote) 

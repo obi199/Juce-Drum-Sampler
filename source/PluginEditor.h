@@ -22,6 +22,7 @@
 //main component//
 
 class DrumSamplerAudioProcessorEditor  : public juce::AudioProcessorEditor,
+                                          public juce::DragAndDropContainer,
                                           private juce::Timer
 {
 public:
@@ -47,12 +48,12 @@ private:
     waveFormEditor waveComponent{ audioProcessor };
     positionLine position{ audioProcessor };
     startLine start{ audioProcessor };
+    endLine end{ audioProcessor };
     ADSROverlay adsrOverlay{ audioProcessor };
 
     int lastDisplayedPadIndex = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };
-
 
 

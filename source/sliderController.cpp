@@ -37,11 +37,6 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     };
 
     setupLabel(labelGain);
-    setupLabel(labelAttack);
-    setupLabel(labelDecay);
-    setupLabel(labelSustain);
-    setupLabel(labelRelease);
-    setupLabel(labelStart);
     setupLabel(labelDetune);
     setupLabel(labelLowpass);
     setupLabel(labelHighpass);
@@ -50,26 +45,6 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&GainSlider);
     GainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mGainAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "GAIN", GainSlider);
-
-    addAndMakeVisible(&AttackSlider);
-    AttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    mAttackAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "ATTACK", AttackSlider);
-
-    addAndMakeVisible(&DecaySlider);
-    DecaySlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    mDecayAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "DECAY", DecaySlider);
-
-    addAndMakeVisible(&ReleaseSlider);
-    ReleaseSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    mReleaseAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "RELEASE", ReleaseSlider);
-
-    addAndMakeVisible(&SustainSlider);
-    SustainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    mSustainAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "SUSTAIN", SustainSlider);
-
-    addAndMakeVisible(&StartOffsetSlider);
-    StartOffsetSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    mStartOffsetAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "START_OFFSET", StartOffsetSlider);
 
     addAndMakeVisible(&VelToAttackSlider);
     VelToAttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -94,8 +69,7 @@ void controlSlidersBlock::resized() {
     const auto sWidth = 70;
     const auto sHeight = 65;
     const auto row1Y = 10;
-    const auto row2Y = row1Y + labelH + sHeight + 8;
-    const auto gap = (getWidth() - (sWidth * 7)) / 8;
+    const auto gap = (getWidth() - (sWidth * 5)) / 6;
 
     auto placeSlider = [&](sliderController& s, juce::Label& lbl, int x, int y)
     {
@@ -103,55 +77,22 @@ void controlSlidersBlock::resized() {
         s.setBounds(x, y + labelH, sWidth, sHeight);
     };
 
-    // Row 1: Gain, Attack, Decay, Sustain, Release, Start
+    // Row 1: Gain, Vel>Atk, Detune, Lowpass, Highpass
     placeSlider(GainSlider,        labelGain,     gap,                row1Y);
-    placeSlider(AttackSlider,      labelAttack,   gap * 2 + sWidth,   row1Y);
-    placeSlider(DecaySlider,       labelDecay,    gap * 3 + sWidth*2, row1Y);
-    placeSlider(SustainSlider,     labelSustain,  gap * 4 + sWidth*3, row1Y);
-    placeSlider(ReleaseSlider,     labelRelease,  gap * 5 + sWidth*4, row1Y);
-    placeSlider(StartOffsetSlider, labelStart,    gap * 6 + sWidth*5, row1Y);
-
-    // Row 2: Detune, Lowpass, Highpass, Vel>Atk
-    placeSlider(DetuneSlider,      labelDetune,   gap,                row2Y);
-    placeSlider(LowpassSlider,     labelLowpass,  gap * 2 + sWidth,   row2Y);
-    placeSlider(HighpassSlider,    labelHighpass, gap * 3 + sWidth*2, row2Y);
-    placeSlider(VelToAttackSlider, labelVelToAtk, gap * 4 + sWidth*3, row2Y);
+    placeSlider(VelToAttackSlider, labelVelToAtk, gap * 2 + sWidth,   row1Y);
+    placeSlider(DetuneSlider,      labelDetune,   gap * 3 + sWidth*2, row1Y);
+    placeSlider(LowpassSlider,     labelLowpass,  gap * 4 + sWidth*3, row1Y);
+    placeSlider(HighpassSlider,    labelHighpass, gap * 5 + sWidth*4, row1Y);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& /*g*/)
 {
-    // No fillAll here, it might cover other components if the parent doesn't set bounds correctly
-    // or if this component is larger than expected.
 }
 
 void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID, juce::String sliderName) {
-    // Update the attachment to the new parameter
-    // Detach the current parameter
-    
-    //mAttackAttachment.reset();
     if (sliderName == "Gain") {
         mGainAttachment.reset();
         mGainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, GainSlider);
-    }
-    if (sliderName == "Attack") {
-        mAttackAttachment.reset();
-        mAttackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, AttackSlider);
-    }
-    if (sliderName == "Decay") {
-        mDecayAttachment.reset();
-        mDecayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, DecaySlider);
-    }
-    if (sliderName == "Sustain") {
-        mSustainAttachment.reset();
-        mSustainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, SustainSlider);
-    }
-    if (sliderName == "Release") {
-        mReleaseAttachment.reset();
-        mReleaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, ReleaseSlider);
-    }
-    if (sliderName == "StartOffset") {
-        mStartOffsetAttachment.reset();
-        mStartOffsetAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, StartOffsetSlider);
     }
     if (sliderName == "VelToAttack") {
         mVelToAttackAttachment.reset();

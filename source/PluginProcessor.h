@@ -110,7 +110,12 @@ public:
 
     void setStartOffsetForNote(int midiNoteNumber, float offset);
     float getStartOffsetForNote(int midiNoteNumber) const;
+    void setEndOffsetForNote(int midiNoteNumber, float offset);
+    float getEndOffsetForNote(int midiNoteNumber) const;
+    float getFadeStartForNote(int midiNoteNumber) const;
+    float getFadeEndForNote(int midiNoteNumber) const;
     void resetPadParametersToDefault(int padIndex);
+    void clearPad(int midiNoteNumber);  // remove sample and reset parameters
      
 private:
     //==============================================================================
@@ -135,4 +140,3 @@ private:
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
 };
-
