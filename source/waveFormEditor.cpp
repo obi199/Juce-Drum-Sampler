@@ -400,10 +400,11 @@ ADSROverlay::DragHandle ADSROverlay::hitTestForHandle(float x, float y)
     float ax  = attackX();
     float dx  = decayX();
     float fex = fadeEndX();
+    float h   = (float)getHeight();
 
-    if (std::abs(x - ax)  < kHitTolerance)  return DragHandle::Attack;
-    if (std::abs(x - dx)  < kHitTolerance)  return DragHandle::Decay;
-    if (std::abs(x - fex) < kHitTolerance)  return DragHandle::FadeEnd;
+    if (std::abs(x - ax)  < kHitTolerance && std::abs(y - 0.0f) < kHitTolerance)  return DragHandle::Attack;
+    if (std::abs(x - dx)  < kHitTolerance && std::abs(y - 0.0f) < kHitTolerance)  return DragHandle::Decay;
+    if (std::abs(x - fex) < kHitTolerance && std::abs(y - h)    < kHitTolerance)  return DragHandle::FadeEnd;
 
     return DragHandle::None;
 }

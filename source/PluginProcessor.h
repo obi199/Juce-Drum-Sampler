@@ -133,6 +133,8 @@ private:
     std::atomic<int> mSampleCount{ 0 };
     std::atomic<bool> mPadSwitchedFromMidi{ false };
     
+    std::array<float, NUM_PADS> lastVelToAttack;
+    
     float currentPositionInSeconds = 0;
     double mSamplerate = 48000.0;
     int sampleIndex = 0;

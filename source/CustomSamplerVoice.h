@@ -124,8 +124,11 @@ public:
             float velAmount = sound->getVelToAttack();
             if (velAmount > 0.0f)
             {
-                float velFactor = 1.0f - (velocity * velAmount);
-                params.attack = juce::jmax(0.001f, params.attack * velFactor);
+                // Add extra attack for lower velocities. 
+                // At velocity 1.0, extra is 0. 
+                // At velocity 0.0, we add up to 0.5s of attack time.
+                float extraAttack = (1.0f - velocity) * velAmount * 0.5f;
+                params.attack += extraAttack;
             }
             adsr.setParameters(params);
 

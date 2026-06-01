@@ -32,6 +32,12 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
     {
         pads[i].midiNote = MIDI_NOTES[i];
         pads[i].gain = 1.0f; // Default to unity gain (0.0 dB)
+        
+        auto suffix = (i == 0) ? juce::String("") : juce::String(i + 1);
+        if (auto* p = mAPVSTATE.getRawParameterValue("VEL_TO_ATTACK" + suffix))
+            lastVelToAttack[i] = p->load();
+        else
+            lastVelToAttack[i] = 0.0f;
     }
 
     for (int i = 0; i < MAX_VOICES; i++) {
@@ -629,8 +635,31 @@ void DrumSamplerAudioProcessor::setEndOffsetForNote(int midiNoteNumber, float of
     if (padIndex != -1)
     {
         auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+
+        float oldEnd = 1.0f;
+        if (auto* p = mAPVSTATE.getRawParameterValue("END_OFFSET" + suffix))
+            oldEnd = p->load();
+
+        float delta = offset - oldEnd;
+
         if (auto* param = mAPVSTATE.getParameter("END_OFFSET" + suffix))
-            param->setValueNotifyingHost(offset);
+            param->setValueNotifyingHost(param->convertTo0to1(offset));
+
+        if (std::abs(delta) > 0.0001f)
+        {
+            auto shiftParam = [&](const juce::String& name) {
+                if (auto* pv = mAPVSTATE.getRawParameterValue(name + suffix))
+                {
+                    if (auto* p = mAPVSTATE.getParameter(name + suffix))
+                    {
+                        float newVal = juce::jlimit(0.0f, 1.0f, pv->load() + delta);
+                        p->setValueNotifyingHost(p->convertTo0to1(newVal));
+                    }
+                }
+            };
+            shiftParam("FADE_START");
+            shiftParam("FADE_END");
+        }
 
         for (int i = 0; i < mSampler.getNumSounds(); ++i)
         {
@@ -697,8 +726,32 @@ int DrumSamplerAudioProcessor::samplePlayed(int midiNote)
 }
 
 //==============================================================================
-void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& /*treeWhosePropertyHasChanged*/, const juce::Identifier& /*property*/)
+void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property)
 {
+    auto propName = property.toString();
+    if (propName.startsWith("VEL_TO_ATTACK"))
+    {
+        auto suffix = propName.substring(13); // "VEL_TO_ATTACK" is 13 chars
+        int padIdx = suffix.isEmpty() ? 0 : suffix.getIntValue() - 1;
+        
+        if (padIdx >= 0 && padIdx < NUM_PADS)
+        {
+            float newVal = tree.getProperty(property);
+            float delta = newVal - lastVelToAttack[static_cast<size_t>(padIdx)];
+            lastVelToAttack[static_cast<size_t>(padIdx)] = newVal;
+
+            if (std::abs(delta) > 0.0001f)
+            {
+                if (auto* p = mAPVSTATE.getParameter("ATTACK" + suffix))
+                {
+                    float currentVal = p->getValue(); // normalized 0-1
+                    float newValAtk = juce::jlimit(0.0f, 1.0f, currentVal + delta);
+                    p->setValueNotifyingHost(newValAtk);
+                }
+            }
+        }
+    }
+
     mShouldUpdate = true;
     mUpdateCount = 2;
 }
