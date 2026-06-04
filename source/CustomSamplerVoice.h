@@ -50,6 +50,9 @@ public:
     void setGainLinear(float g) { gainLinear = juce::jlimit(0.0f, 4.0f, g); }
     float getGainLinear() const { return gainLinear; }
 
+    void setOutputBusIndex(int index) { outputBusIndex = index; }
+    int getOutputBusIndex() const { return outputBusIndex; }
+
     double getSourceSampleRate() const { return sourceSampleRate; }
 
 private:
@@ -61,6 +64,7 @@ private:
     float lowpassCutoff = 20000.0f;
     float highpassCutoff = 20.0f;
     float gainLinear = 1.0f;
+    int outputBusIndex = 0;
     double sourceSampleRate = 44100.0;
     juce::ADSR::Parameters adsrParams;
 };
@@ -205,8 +209,13 @@ public:
                 int pos1 = pos0 + 1;
                 float frac = static_cast<float>(currentSamplePos - static_cast<double>(pos0));
 
-                for (int channel = 0; channel < numChannels; ++channel)
+                int busOffset = playingSound->getOutputBusIndex() * 2;
+                
+                for (int channel = 0; channel < 2; ++channel)
                 {
+                    int targetCh = busOffset + channel;
+                    if (targetCh >= numChannels) break;
+
                     int srcCh = channel % data->getNumChannels();
                     float s0 = data->getSample(srcCh, pos0);
                     float s1 = data->getSample(srcCh, pos1);
@@ -214,7 +223,7 @@ public:
                     int filterIdx = juce::jmin(channel, 1);
                     sample = lowpassFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = highpassFilters[filterIdx].processSingleSampleRaw(sample);
-                    outputBuffer.addSample(channel, startSample + i, sample * envelopeValue);
+                    outputBuffer.addSample(targetCh, startSample + i, sample * envelopeValue);
                 }
                 currentSamplePos += pitchRatio;
             }

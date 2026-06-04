@@ -121,6 +121,7 @@ private:
     //==============================================================================
     juce::Synthesiser mSampler;
     std::array<DrumPad, NUM_PADS> pads;
+    juce::AudioBuffer<float> multiOutBuffer;
     
     juce::AudioProcessorValueTreeState mAPVSTATE;
     

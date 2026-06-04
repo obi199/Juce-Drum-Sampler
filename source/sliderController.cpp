@@ -16,7 +16,7 @@
 
 sliderController::sliderController(juce::String /*name*/) {
     setLookAndFeel(&noBoxLAF);
-    setTextBoxStyle(TextBoxBelow, true, 60, 16);
+    setTextBoxStyle(TextBoxBelow, true, 75, 16);
 }
 
 sliderController::~sliderController()
@@ -66,8 +66,8 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
 void controlSlidersBlock::resized() {
 
     const auto labelH = 16;
-    const auto sWidth = 70;
-    const auto sHeight = 65;
+    const auto sWidth = 75;
+    const auto sHeight = 75;
     const auto row1Y = 10;
     const auto gap = (getWidth() - (sWidth * 5)) / 6;
 

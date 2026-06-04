@@ -17,7 +17,23 @@ DrumSamplerAudioProcessor::DrumSamplerAudioProcessor()
                       #if ! JucePlugin_IsSynth
                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                       #endif
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Main", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 1", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 2", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 3", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 4", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 5", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 6", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 7", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 8", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 9", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 10", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 11", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 12", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 13", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 14", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 15", juce::AudioChannelSet::stereo(), true)
+                       .withOutput ("Pad 16", juce::AudioChannelSet::stereo(), true)
                      #endif
                        ),   thumbnailCache(5),                         
                             thumbnail(128, mFormatManager, thumbnailCache), 
@@ -114,10 +130,11 @@ void DrumSamplerAudioProcessor::changeProgramName (int /*index*/, const juce::St
 }
 
 //==============================================================================
-void DrumSamplerAudioProcessor::prepareToPlay (double newSampleRate, int /*samplesPerBlock*/)
+void DrumSamplerAudioProcessor::prepareToPlay (double newSampleRate, int samplesPerBlock)
 {
     mSampler.setCurrentPlaybackSampleRate(newSampleRate);
     mSamplerate = newSampleRate;
+    multiOutBuffer.setSize(32, samplesPerBlock);
     updateADSR(0);
 }
 
@@ -135,17 +152,11 @@ bool DrumSamplerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
     juce::ignoreUnused (layouts);
     return true;
   #else
-
-    if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
-     && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
-        return false;
-
-    // This checks if the input layout matches the output layout
-   #if ! JucePlugin_IsSynth
-    if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
-        return false;
-   #endif
-
+    for (auto& set : layouts.outputBuses)
+    {
+        if (set != juce::AudioChannelSet::stereo() && set != juce::AudioChannelSet::disabled())
+            return false;
+    }
     return true;
   #endif
 }
@@ -154,11 +165,14 @@ bool DrumSamplerAudioProcessor::isBusesLayoutSupported (const BusesLayout& layou
 void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
-    auto totalNumOutputChannels = getTotalNumOutputChannels();
+    auto numSamples = buffer.getNumSamples();
 
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    // Clear all output buses
+    for (int i = 0; i < getBusCount(false); ++i)
+    {
+        auto busBuffer = getBus(false, i)->getBusBuffer(buffer);
+        busBuffer.clear();
+    }
 
     // Detect incoming MIDI note-on events and update the active pad accordingly
     for (const auto metadata : midiMessages)
@@ -222,13 +236,45 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     currentPositionInSeconds = static_cast<float>(mSampleCount) / static_cast<float>(mSamplerate);
     
-    mSampler.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
+    // Render into temporary buffer
+    multiOutBuffer.clear();
+    mSampler.renderNextBlock(multiOutBuffer, midiMessages, 0, numSamples);
 
-    // Safety limiter/clamping to avoid harsh digital distortion
+    // Distribute from multiOutBuffer to output buses
+    
+    // 1. Main Mix (Bus 0)
+    if (auto* mainBus = getBus(false, 0))
+    {
+        auto mainBuffer = mainBus->getBusBuffer(buffer);
+        if (mainBuffer.getNumChannels() >= 2)
+        {
+            for (int i = 0; i < NUM_PADS; ++i)
+            {
+                mainBuffer.addFrom(0, 0, multiOutBuffer, i * 2, 0, numSamples);
+                mainBuffer.addFrom(1, 0, multiOutBuffer, i * 2 + 1, 0, numSamples);
+            }
+        }
+    }
+
+    // 2. Individual Pads (Buses 1 to NUM_PADS)
+    for (int i = 0; i < NUM_PADS; ++i)
+    {
+        if (auto* bus = getBus(false, i + 1))
+        {
+            auto busBuffer = bus->getBusBuffer(buffer);
+            if (busBuffer.getNumChannels() >= 2)
+            {
+                busBuffer.addFrom(0, 0, multiOutBuffer, i * 2, 0, numSamples);
+                busBuffer.addFrom(1, 0, multiOutBuffer, i * 2 + 1, 0, numSamples);
+            }
+        }
+    }
+
+    // Safety limiter/clamping (applying to all active channels in the main buffer)
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
     {
         auto* data = buffer.getWritePointer(ch);
-        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        for (int i = 0; i < numSamples; ++i)
             data[i] = juce::jlimit(-1.0f, 1.0f, data[i]);
     }
 }
@@ -361,6 +407,7 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
     }
 
     auto* sound = new CustomSamplerSound(file.getFileName(), *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0);
+    sound->setOutputBusIndex(padIndex);
     
     // Apply existing offset if any (from APVTS if available)
     float offset = getStartOffsetForNote(noteNumber);

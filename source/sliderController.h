@@ -35,6 +35,82 @@ private:
             label->setColour(juce::Label::outlineWhenEditingColourId, juce::Colours::transparentBlack);
             return label;
         }
+
+        void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos,
+            const float rotaryStartAngle, const float rotaryEndAngle, juce::Slider& slider) override
+        {
+            auto outline = slider.findColour(juce::Slider::rotarySliderOutlineColourId);
+            auto fill = slider.findColour(juce::Slider::rotarySliderFillColourId);
+
+            auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(6);
+
+            auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
+            auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+            auto lineW = juce::jmin(4.0f, radius * 0.2f);
+            auto arcRadius = radius - lineW * 0.5f;
+
+            // Draw background arc
+            juce::Path backgroundArc;
+            backgroundArc.addCentredArc(bounds.getCentreX(),
+                bounds.getCentreY(),
+                arcRadius,
+                arcRadius,
+                0.0f,
+                rotaryStartAngle,
+                rotaryEndAngle,
+                true);
+
+            g.setColour(outline.withAlpha(0.3f));
+            g.strokePath(backgroundArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+            if (slider.isEnabled())
+            {
+                juce::Path valueArc;
+                valueArc.addCentredArc(bounds.getCentreX(),
+                    bounds.getCentreY(),
+                    arcRadius,
+                    arcRadius,
+                    0.0f,
+                    rotaryStartAngle,
+                    toAngle,
+                    true);
+
+                g.setColour(fill);
+                g.strokePath(valueArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+            }
+
+            // --- Knob Body ---
+            auto knobRadius = radius - lineW * 2.0f;
+            auto knobBounds = juce::Rectangle<float>(bounds.getCentreX() - knobRadius, bounds.getCentreY() - knobRadius, knobRadius * 2.0f, knobRadius * 2.0f);
+
+            // Shadow
+            g.setColour(juce::Colours::black.withAlpha(0.5f));
+            g.fillEllipse(knobBounds.translated(0, 2));
+
+            // Main body
+            juce::ColourGradient knobGrad(juce::Colours::lightgrey, knobBounds.getTopLeft(),
+                juce::Colours::darkgrey.darker(0.8f), knobBounds.getBottomRight(), false);
+            g.setGradientFill(knobGrad);
+            g.fillEllipse(knobBounds);
+
+            // Top shine
+            g.setColour(juce::Colours::white.withAlpha(0.1f));
+            g.fillEllipse(knobBounds.reduced(2).translated(0, -1));
+
+            // Outline
+            g.setColour(juce::Colours::black.withAlpha(0.8f));
+            g.drawEllipse(knobBounds, 1.0f);
+
+            // --- Pointer ---
+            juce::Path p;
+            auto pointerLength = knobRadius * 0.45f;
+            auto pointerThickness = 3.0f;
+            p.addRoundedRectangle(-pointerThickness * 0.5f, -knobRadius + 2.0f, pointerThickness, pointerLength, 1.0f);
+            p.applyTransform(juce::AffineTransform::rotation(toAngle).translated(bounds.getCentreX(), bounds.getCentreY()));
+
+            g.setColour(juce::Colours::white);
+            g.fillPath(p);
+        }
     };
 
     NoBoxLookAndFeel noBoxLAF;
