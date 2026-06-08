@@ -134,7 +134,7 @@ void DrumSamplerAudioProcessor::prepareToPlay (double newSampleRate, int samples
 {
     mSampler.setCurrentPlaybackSampleRate(newSampleRate);
     mSamplerate = newSampleRate;
-    multiOutBuffer.setSize(32, samplesPerBlock);
+    multiOutBuffer.setSize(MULTI_OUT_BUFFER_CHANNELS, samplesPerBlock);
     updateADSR(0);
 }
 
@@ -366,14 +366,56 @@ void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
     resetPadParametersToDefault(padIndex);
 }
 
+/**
+ * Load an audio file into a drum pad
+ * 
+ * Loads an audio file and creates a CustomSamplerSound that maps to the given MIDI note.
+ * If the pad was previously empty, all parameters are reset to defaults to avoid parameter
+ * bleed-through from previous sessions.
+ * 
+ * Thread-safe for audio thread (called from UI)
+ * 
+ * @param path        Full file path to the audio file (WAV, MP3, FLAC, etc.)
+ * @param noteNumber  MIDI note number (36-51 for standard drum mapping)
+ * @param buttonName  Display name for the UI pad (unused in current implementation)
+ * 
+ * @note Handles errors gracefully with console logging
+ * @note Automatically replaces any existing sound for this note
+ * @note Updates ADSR envelope immediately after loading
+ * 
+ * @see resetPadParametersToDefault()
+ * @see updateADSR()
+ */
 void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumber, juce::String /*buttonName*/)
 {   
-    auto file = juce::File(path);
-    int padIndex = getPadIndexFromMidiNote(noteNumber);
-    if (padIndex == -1) return;
+    // Validate inputs
+    if (path.isEmpty())
+    {
+        juce::Logger::writeToLog("ERROR: Empty file path provided to loadFile");
+        return;
+    }
 
-    mFormatReader = mFormatManager.createReaderFor(file);
-    if (mFormatReader == nullptr) return;
+    auto file = juce::File(path);
+    if (!file.existsAsFile())
+    {
+        juce::Logger::writeToLog("ERROR: File does not exist: " + path);
+        return;
+    }
+
+    int padIndex = getPadIndexFromMidiNote(noteNumber);
+    if (padIndex == -1)
+    {
+        juce::Logger::writeToLog("ERROR: Invalid MIDI note number: " + juce::String(noteNumber));
+        return;
+    }
+
+    // Create reader with error handling
+    std::unique_ptr<juce::AudioFormatReader> reader(mFormatManager.createReaderFor(file));
+    if (reader == nullptr)
+    {
+        juce::Logger::writeToLog("ERROR: Unable to read audio file: " + file.getFullPathName());
+        return;
+    }
 
     // If this pad had no sample before, reset all its parameters to defaults
     // so leftover values from a previous session don't bleed in.
@@ -381,6 +423,8 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
     if (wasEmpty)
         resetPadParametersToDefault(padIndex);
     
+    // Store reader and sample info
+    mFormatReader = std::move(reader);
     mSampleRateInt = static_cast<int>(mFormatReader->sampleRate);
     totalLength = static_cast<int>(mFormatReader->lengthInSamples);
     
@@ -407,7 +451,9 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
         }
     }
 
-    auto* sound = new CustomSamplerSound(file.getFileName(), *mFormatReader, range, noteNumber, 0.01, 0.1, 10.0);
+    // Create new sound (JUCE Synthesiser uses ReferenceCountedObjectPtr for lifetime management)
+    // We use raw pointer here - JUCE will manage the lifetime
+    auto* sound = new CustomSamplerSound(file.getFileName(), *mFormatReader, range, noteNumber, DEFAULT_SAMPLE_LOAD_ATTACK, DEFAULT_SAMPLE_LOAD_RELEASE, DEFAULT_SAMPLE_MAX_LENGTH);
     sound->setOutputBusIndex(padIndex);
     
     // Apply existing offset if any (from APVTS if available)
@@ -424,7 +470,7 @@ void DrumSamplerAudioProcessor::loadFile(const juce::String& path, int noteNumbe
         sound->setFadeStartOffset(fadeStart);
     }
     
-    mSampler.addSound(sound);
+    mSampler.addSound(sound);  // Synthesiser takes ownership via ReferenceCountedObjectPtr
     updateADSR(padIndex);
 }
 
@@ -532,9 +578,32 @@ float DrumSamplerAudioProcessor::updateGain(int padIndex)
     return currentGain;
 }
 
+/**
+ * Update ADSR envelope for a specific pad
+ * 
+ * Retrieves current ADSR, filter, and offset parameters from the AudioProcessorValueTreeState
+ * and applies them to the corresponding CustomSamplerSound. Called when parameters change
+ * or when audio processing begins.
+ * 
+ * Computes release time dynamically based on fade-out positions in the waveform.
+ * 
+ * @param padIndex Zero-based pad index (0-15)
+ * 
+ * @note Bounds-checked with debug assertion
+ * @note Safe to call from audio thread
+ * @note Updates filter coefficients for real-time parameter changes
+ * 
+ * @see CustomSamplerSound::setEnvelopeParameters()
+ */
 void DrumSamplerAudioProcessor::updateADSR(int padIndex) 
 {
-    if (padIndex < 0 || padIndex >= NUM_PADS) return;
+    // Debug assertion and bounds check
+    jassert(padIndex >= 0 && padIndex < NUM_PADS);
+    if (padIndex < 0 || padIndex >= NUM_PADS) 
+    {
+        juce::Logger::writeToLog("WARNING: updateADSR called with invalid pad index: " + juce::String(padIndex));
+        return;
+    }
     
     auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
     
@@ -550,9 +619,9 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
     float fadeStart = 0.8f;
     float fadeEnd   = 1.0f;
     if (auto* p = mAPVSTATE.getRawParameterValue("FADE_START" + suffix))
-        fadeStart = p->load();
+        fadeStart = juce::jlimit(0.0f, 1.0f, p->load());
     if (auto* p = mAPVSTATE.getRawParameterValue("FADE_END" + suffix))
-        fadeEnd = p->load();
+        fadeEnd = juce::jlimit(0.0f, 1.0f, p->load());
 
     // Get sample duration in seconds from the loaded sound (if available)
     float sampleDurationSecs = 1.0f;

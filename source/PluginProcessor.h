@@ -27,7 +27,12 @@ struct DrumPad
 // Configuration Constants
 static constexpr int MAX_VOICES = 16;
 static constexpr int NUM_PADS = 16;
+static constexpr int CHANNELS_PER_PAD = 2;
+static constexpr int MULTI_OUT_BUFFER_CHANNELS = NUM_PADS * CHANNELS_PER_PAD;  // 32 channels total
 static constexpr int MIDI_NOTES[NUM_PADS] = { 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51 };
+static constexpr float DEFAULT_SAMPLE_LOAD_ATTACK = 0.01f;
+static constexpr float DEFAULT_SAMPLE_LOAD_RELEASE = 0.1f;
+static constexpr float DEFAULT_SAMPLE_MAX_LENGTH = 10.0f;
 
 //==============================================================================
 /**
@@ -86,7 +91,7 @@ public:
     juce::AudioFormatManager mFormatManager;
     juce::AudioThumbnailCache thumbnailCache;                  
     juce::AudioThumbnail thumbnail;
-    juce::AudioFormatReader* mFormatReader{ nullptr };
+    std::unique_ptr<juce::AudioFormatReader> mFormatReader;
     
     void playFile(int);
     void updateADSR(int);
