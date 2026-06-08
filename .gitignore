@@ -1,18 +1,50 @@
+# IDE & Editor
 .idea/
 .vscode/
+.clion_ide_workspace/
+.clionrc
+*.user
+*.suo
+*.vcxproj.user
+*.swp
+*.swo
+*~
+
+# Build directories
 cmake-build-*/
+build/
 /Builds/
 /x64/
 /Debug/
 /Release/
-*.user
-*.suo
-*.vcxproj.user
-*.pdb
+.vs/
+
+# Compiled object files & libraries
+*.o
 *.obj
+*.a
+*.so
+*.so.*
+*.dylib
 *.exe
+*.pdb
+
+# Compiled plugins
+*.vst3
+*.component
+*.au
+
+# Build artifacts
 *.log
-   .vs/
+CMakeUserPresets.json
+compile_commands.json
+
+# OS files
 .DS_Store
 Thumbs.db
-JUCE/
+
+# JUCE artifacts
+Juce_Drum_Sampler_artefacts/
+
+# CLion workspace
+.junie/
