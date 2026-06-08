@@ -133,21 +133,24 @@ public:
 private:
 
     sliderController GainSlider{ "Gain" };
-    sliderController VelToAttackSlider{ "Vel>Atk" };
     sliderController DetuneSlider{ "Detune" };
     sliderController LowpassSlider{ "Lowpass" };
     sliderController HighpassSlider{ "Highpass" };
+    sliderController VelToLowpassSlider{ "Vel>LP" };
+    sliderController VelToAttackSlider{ "Vel>Atk" };
 
     std::unique_ptr<SliderAttachment> mGainAttachment;
-    std::unique_ptr<SliderAttachment> mVelToAttackAttachment;
     std::unique_ptr<SliderAttachment> mDetuneAttachment;
     std::unique_ptr<SliderAttachment> mLowpassAttachment;
     std::unique_ptr<SliderAttachment> mHighpassAttachment;
+    std::unique_ptr<SliderAttachment> mVelToLowpassAttachment;
+    std::unique_ptr<SliderAttachment> mVelToAttackAttachment;
 
     juce::Label labelGain{ {}, "Gain" };
     juce::Label labelDetune{ {}, "Detune" };
     juce::Label labelLowpass{ {}, "Lowpass" };
     juce::Label labelHighpass{ {}, "Highpass" };
+    juce::Label labelVelToLP{ {}, "Vel>LP" };
     juce::Label labelVelToAtk{ {}, "Vel>Atk" };
 
     DrumSamplerAudioProcessor& audioProcessor;

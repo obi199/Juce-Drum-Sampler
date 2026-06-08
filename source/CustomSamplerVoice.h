@@ -44,6 +44,9 @@ public:
     void setLowpassCutoff(float hz) { lowpassCutoff = juce::jlimit(200.0f, 20000.0f, hz); }
     float getLowpassCutoff() const { return lowpassCutoff; }
 
+    void setVelToLowpass(float amount) { velToLowpass = juce::jlimit(0.0f, 1.0f, amount); }
+    float getVelToLowpass() const { return velToLowpass; }
+
     void setHighpassCutoff(float hz) { highpassCutoff = juce::jlimit(20.0f, 18000.0f, hz); }
     float getHighpassCutoff() const { return highpassCutoff; }
 
@@ -62,6 +65,7 @@ private:
     float velToAttack = 0.0f;
     float detuneSemitones = 0.0f;
     float lowpassCutoff = 20000.0f;
+    float velToLowpass = 0.0f;
     float highpassCutoff = 20.0f;
     float gainLinear = 1.0f;
     int outputBusIndex = 0;
@@ -82,6 +86,7 @@ public:
         juce::SamplerVoice::startNote(midiNoteNumber, velocity, s, currentPitchWheelPosition);
         currentSamplePos = 0.0;
         fadeTriggered = false;
+        noteVelocity = velocity;
         // Apply a velocity curve: velocity^0.5 gives a more natural, louder response
         // at high velocities compared to linear mapping
         currentGain = std::pow(velocity, 0.5f);
@@ -170,7 +175,17 @@ public:
 
             // Update filter coefficients every block so knob changes take effect in real-time
             double hostRate = getSampleRate();
-            auto lpCoeffs = juce::IIRCoefficients::makeLowPass(hostRate, (double)playingSound->getLowpassCutoff());
+            float lpCutoff = playingSound->getLowpassCutoff();
+            float velLP = playingSound->getVelToLowpass();
+            if (velLP > 0.0f)
+            {
+                // Reduce cutoff for lower velocities.
+                // Factor of 0.001 means at 0 velocity it's 1000x lower if velLP is 1.0.
+                float factor = std::pow(0.001f, (1.0f - noteVelocity) * velLP);
+                lpCutoff *= factor;
+                lpCutoff = std::max(lpCutoff, 20.0f);
+            }
+            auto lpCoeffs = juce::IIRCoefficients::makeLowPass(hostRate, (double)lpCutoff);
             auto hpCoeffs = juce::IIRCoefficients::makeHighPass(hostRate, (double)playingSound->getHighpassCutoff());
             for (int ch = 0; ch < 2; ++ch)
             {
@@ -239,6 +254,7 @@ private:
     bool fadeTriggered = false;
     double pitchRatio = 1.0;
     float currentGain = 1.0f;
+    float noteVelocity = 1.0f;
     juce::ADSR adsr;
     juce::IIRFilter lowpassFilters[2];
     juce::IIRFilter highpassFilters[2];

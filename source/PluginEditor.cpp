@@ -136,6 +136,7 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("DETUNE" + suffix, "Detune");
     CBlock.changeSliderParameter("LOWPASS" + suffix, "Lowpass");
     CBlock.changeSliderParameter("HIGHPASS" + suffix, "Highpass");
+    CBlock.changeSliderParameter("VEL_TO_LOWPASS" + suffix, "VelToLowpass");
 
     // Update ADSR for this pad
     audioProcessor.updateADSR(padIndex);

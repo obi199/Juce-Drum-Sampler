@@ -335,10 +335,11 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("END_OFFSET",   1.0f);
     setDefault("FADE_START",   0.8f);
     setDefault("FADE_END",     1.0f);
-    setDefault("VEL_TO_ATTACK",0.0f);
     setDefault("DETUNE",       0.0f);
     setDefault("LOWPASS",      20000.0f);
     setDefault("HIGHPASS",     20.0f);
+    setDefault("VEL_TO_LOWPASS",0.0f);
+    setDefault("VEL_TO_ATTACK",0.0f);
 }
 
 void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
@@ -485,7 +486,6 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("END_OFFSET" + suffix, 1), "End Offset", 0.0f, 1.0f, 1.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("FADE_START" + suffix, 1), "Fade Start", 0.0f, 1.0f, 0.8f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("FADE_END" + suffix, 1), "Fade End", 0.0f, 1.0f, 1.0f));
-        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), "Vel>Atk", 0.0f, 1.0f, 0.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("DETUNE" + suffix, 1),
             "Detune",
@@ -507,6 +507,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
             20.0f,
             "Hz"
         ));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_LOWPASS" + suffix, 1), "Vel>LP", 0.0f, 1.0f, 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), "Vel>Atk", 0.0f, 1.0f, 0.0f));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -595,11 +597,6 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                     gainDb = v->load();
                 sound->setGainLinear(juce::Decibels::decibelsToGain(gainDb, -60.0f));
 
-                float velToAtk = 0.0f;
-                if (auto* v = mAPVSTATE.getRawParameterValue("VEL_TO_ATTACK" + suffix))
-                    velToAtk = v->load();
-                sound->setVelToAttack(velToAtk);
-
                 float detuneSt = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("DETUNE" + suffix))
                     detuneSt = v->load();
@@ -615,6 +612,16 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                     highpassHz = v->load();
                 sound->setHighpassCutoff(highpassHz);
 
+                float velToLP = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("VEL_TO_LOWPASS" + suffix))
+                    velToLP = v->load();
+                sound->setVelToLowpass(velToLP);
+
+                float velToAtk = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("VEL_TO_ATTACK" + suffix))
+                    velToAtk = v->load();
+                sound->setVelToAttack(velToAtk);
+
                 float startOff = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))
                     startOff = v->load();
@@ -625,9 +632,6 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                     endOff = v->load();
                 sound->setEndOffset(endOff);
 
-                float fadeStart = 0.8f;
-                if (auto* v = mAPVSTATE.getRawParameterValue("FADE_START" + suffix))
-                    fadeStart = v->load();
                 sound->setFadeStartOffset(fadeStart);
 
                 break;
@@ -776,13 +780,26 @@ int DrumSamplerAudioProcessor::samplePlayed(int midiNote)
 void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& tree, const juce::Identifier& property)
 {
     auto propName = property.toString();
-    if (propName.startsWith("VEL_TO_ATTACK"))
+    
+    // Find pad index from property name suffix (e.g., "GAIN2" -> pad 1)
+    int padIdx = -1;
+    if (! propName.isEmpty())
     {
-        auto suffix = propName.substring(13); // "VEL_TO_ATTACK" is 13 chars
-        int padIdx = suffix.isEmpty() ? 0 : suffix.getIntValue() - 1;
+        int lastDigitIdx = propName.length();
+        while (lastDigitIdx > 0 && juce::CharacterFunctions::isDigit(propName[lastDigitIdx - 1]))
+            --lastDigitIdx;
         
-        if (padIdx >= 0 && padIdx < NUM_PADS)
+        if (lastDigitIdx < propName.length())
+            padIdx = propName.substring(lastDigitIdx).getIntValue() - 1;
+        else
+            padIdx = 0; // Pad 1 has no digit suffix
+    }
+
+    if (padIdx >= 0 && padIdx < NUM_PADS)
+    {
+        if (propName.startsWith("VEL_TO_ATTACK"))
         {
+            auto suffix = (padIdx == 0) ? juce::String("") : juce::String(padIdx + 1);
             float newVal = tree.getProperty(property);
             float delta = newVal - lastVelToAttack[static_cast<size_t>(padIdx)];
             lastVelToAttack[static_cast<size_t>(padIdx)] = newVal;
@@ -797,6 +814,9 @@ void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& tree, 
                 }
             }
         }
+        
+        // Immediately update the internal sound parameters for the affected pad
+        updateADSR(padIdx);
     }
 
     mShouldUpdate = true;

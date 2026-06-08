@@ -17,6 +17,15 @@
 DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p, int m, juce::String name) : Processor(p) {
     midiNote = m;
     buttonName = name;
+
+    // Fetch existing filename if a sample is already loaded for this pad
+    int padIdx = Processor.getPadIndexFromMidiNote(midiNote);
+    if (padIdx >= 0)
+    {
+        auto file = Processor.getSampleFile(padIdx);
+        if (file.existsAsFile())
+            filename = file.getFileName();
+    }
 }
 
 DragAndDropButton::~DragAndDropButton() {}
@@ -158,12 +167,34 @@ void DragAndDropButton::mouseUp(const juce::MouseEvent& e)
     if (e.mods.isRightButtonDown())
     {
         juce::PopupMenu menu;
-        menu.addItem(1, "Clear Pad", !filename.isEmpty());
+        menu.addItem(1, "Load Sample...");
+        menu.addItem(2, "Clear Pad", !filename.isEmpty());
 
         menu.showMenuAsync(juce::PopupMenu::Options{}.withTargetComponent(this),
             [this](int result)
             {
                 if (result == 1)
+                {
+                    // Load Sample
+                    chooser = std::make_unique<juce::FileChooser>("Select a sample to load...",
+                        juce::File{},
+                        "*.wav;*.mp3");
+
+                    auto chooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+
+                    chooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fc)
+                        {
+                            auto file = fc.getResult();
+                            if (file.existsAsFile())
+                            {
+                                filename = file.getFileName();
+                                Processor.loadFile(file.getFullPathName(), midiNote, buttonName);
+                                if (onFileDropped) onFileDropped();
+                                repaint();
+                            }
+                        });
+                }
+                else if (result == 2)
                 {
                     Processor.clearPad(midiNote);
                     clearSample();
