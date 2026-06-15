@@ -115,6 +115,7 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
         return;
 
     lastDisplayedPadIndex = padIndex;
+    audioProcessor.setUIPadIndex(padIndex);
 
     // If the pad has a sample, point the thumbnail to it; otherwise clear the waveform
     if (audioProcessor.hasSampleLoaded(padIndex))
@@ -162,11 +163,9 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, in
 
 void DrumSamplerAudioProcessorEditor::timerCallback()
 {
-    if (audioProcessor.checkAndClearPadSwitchedFromMidi())
-    {
-        int padIndex = audioProcessor.getCurrentPadIndex();
-        switchTopad(padIndex);
-    }
+    // Consume the flag so it doesn't accumulate, but do not switch
+    // the waveform display on MIDI input — only button presses do that.
+    audioProcessor.checkAndClearPadSwitchedFromMidi();
 }
 
 

@@ -203,6 +203,7 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     {
         bool anyActive = false;
         int latestSamplePos = 0;
+        int uiMidiNote = (uiPadIndex >= 0 && uiPadIndex < NUM_PADS) ? MIDI_NOTES[uiPadIndex] : -1;
         
         for (int i = 0; i < mSampler.getNumVoices(); ++i)
         {
@@ -211,9 +212,9 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                 if (v->isVoiceActive())
                 {
                     anyActive = true;
-                    // We take the position from the first active voice we find, 
-                    // or we could track which one was triggered last if needed.
-                    latestSamplePos = v->getNextSamplePos();
+                    // Only track position for the UI-selected pad's voice
+                    if (v->getCurrentlyPlayingNote() == uiMidiNote)
+                        latestSamplePos = v->getNextSamplePos();
                 }
             }
         }

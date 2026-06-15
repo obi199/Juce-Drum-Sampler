@@ -104,7 +104,8 @@ public:
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     bool checkAndClearPadSwitchedFromMidi() { return mPadSwitchedFromMidi.exchange(false); }
     float getPosInSec() { return currentPositionInSeconds; }
-    int getCurrentPadIndex() const { return sampleIndex; }
+    int getCurrentPadIndex() const { return uiPadIndex; }
+    void setUIPadIndex(int i) { uiPadIndex = i; }
     
     int samplePlayed(int midiNote);
     float newPositionSec = 0;
@@ -144,6 +145,7 @@ private:
     float currentPositionInSeconds = 0;
     double mSamplerate = 48000.0;
     int sampleIndex = 0;
+    int uiPadIndex  = 0;
     float currentGain = 0.2f;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessor)
