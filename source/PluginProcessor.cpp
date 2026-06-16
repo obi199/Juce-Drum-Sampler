@@ -644,7 +644,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("GAIN" + suffix, 1), 
             "Gain", 
-            juce::NormalisableRange<float>(-42.0f, 24.0f, 0.1f, 1.5f), 
+            juce::NormalisableRange<float>(-42.0f, 12.0f, 0.1f, 1.5f),
             0.0f,
             "dB"
         ));

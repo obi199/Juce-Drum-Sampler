@@ -49,6 +49,7 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&GainSlider);
     GainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mGainAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "GAIN", GainSlider);
+    GainSlider.setTextValueSuffix(" dB");
 
     addAndMakeVisible(&DetuneSlider);
     DetuneSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -69,10 +70,12 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&LowpassSlider);
     LowpassSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mLowpassAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "LOWPASS", LowpassSlider);
+    LowpassSlider.setTextValueSuffix(" Hz");
 
     addAndMakeVisible(&HighpassSlider);
     HighpassSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mHighpassAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "HIGHPASS", HighpassSlider);
+    HighpassSlider.setTextValueSuffix(" Hz");
 
     addAndMakeVisible(&VelToLowpassSlider);
     VelToLowpassSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
