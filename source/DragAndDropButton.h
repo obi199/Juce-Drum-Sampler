@@ -44,6 +44,7 @@ public:
 
     int getMidiNote() const { return midiNote; }
     void clearSample() { filename.clear(); repaint(); }
+    void setFilename(const juce::String& name) { filename = name; repaint(); }
 
 private:
     DrumSamplerAudioProcessor& Processor;

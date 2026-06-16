@@ -122,6 +122,9 @@ public:
     float getFadeEndForNote(int midiNoteNumber) const;
     void resetPadParametersToDefault(int padIndex);
     void clearPad(int midiNoteNumber);  // remove sample and reset parameters
+
+    void saveDrumSet(const juce::File& file);
+    void loadDrumSet(const juce::File& file, std::function<void()> onComplete = nullptr);
      
 private:
     //==============================================================================

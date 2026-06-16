@@ -43,27 +43,27 @@ Pad 3-16: "GAIN3"-"GAIN16", etc.
 ```cpp
 std::vector<std::unique_ptr<DragAndDropButton>> padButtons;  // 16 pad buttons
 waveFormEditor waveComponent;      // Waveform display
-controlSlidersBlock CBlock;         // 6 rotary sliders
+controlSlidersBlock CBlock;         // 9 rotary sliders (2 rows)
 positionLine position;              // Playback position indicator
 startLine start;                    // Sample start offset handle
 endLine end;                        // Sample end offset handle
 ADSROverlay adsrOverlay;            // Interactive envelope editor
+juce::TextButton saveKitButton;     // Save .drumkit file
+juce::TextButton loadKitButton;     // Load .drumkit file
 ```
 
 **Layout**:
 ```
-┌─────────────────────────────────────────────────┐
-│  Pad Grid (4x4)        │  Waveform Display      │
-│                        │  ┌──────────────────┐  │
-│  [1] [2] [3] [4]       │  │  ~~~~~ ~~~ ~~~~  │  │
-│  [5] [6] [7] [8]       │  │ ~                 │  │
-│  [9] [10][11][12]      │  │                   │  │
-│  [13][14][15][16]      │  │ ADSR Overlay (A F E)│
-│                        │  └──────────────────┘  │
-│                        │  Gain   Detune        │
-│                        │  Lowpass Highpass     │
-│                        │  Vel→LP Vel→Atk       │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│  Pad Grid (4x4)        │  [Save Kit]  [Load Kit]    │
+│                        │  Waveform Display           │
+│  [1] [2] [3] [4]       │  ┌──────────────────────┐  │
+│  [5] [6] [7] [8]       │  │  ~~~~~ ~~~ ~~~~~     │  │
+│  [9] [10][11][12]      │  │  ADSR Overlay (A F E) │  │
+│  [13][14][15][16]      │  └──────────────────────┘  │
+│                        │  Gain  Detune  EQLo Mid Hi │
+│                        │  LP    HP   Vel→LP Vel→Atk │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -82,6 +82,9 @@ struct PerPadData {
     float highpassCutoff;       // Filter frequency (Hz)
     float velToLowpass;         // Velocity → filter modulation
     float velToAttack;          // Velocity → attack modulation
+    float eqLowDb;              // Low shelf gain ±12 dB (100 Hz)
+    float eqMidDb;              // Mid peak gain ±12 dB (1 kHz)
+    float eqHighDb;             // High shelf gain ±12 dB (8 kHz)
     float gainLinear;           // Volume multiplier
     int outputBusIndex;         // Which output bus to use
 };
@@ -106,8 +109,11 @@ renderNextBlock() - For each sample:
     3. Sample linear interpolation (for pitch)
     4. Apply lowpass filter with velocity modulation
     5. Apply highpass filter
-    6. Multiply by ADSR envelope value
-    7. Accumulate to output buffer
+    6. Apply EQ low shelf (100 Hz)
+    7. Apply EQ mid peak (1 kHz)
+    8. Apply EQ high shelf (8 kHz)
+    9. Multiply by ADSR envelope value
+   10. Accumulate to output buffer
     ↓
 MIDI Note Off or sample end detected
     ↓
@@ -131,7 +137,9 @@ stopNote() - Trigger release phase
 - Supports all parameter types (dB, Hz, normalized)
 
 #### **controlSlidersBlock** (sliderController.h/.cpp)
-- Container for 6 sliders
+- Container for 9 sliders in 2 rows
+- Row 1: Gain, Detune, EQ Lo, EQ Mid, EQ Hi
+- Row 2: Lowpass, Highpass, Vel→LP, Vel→Atk
 - Manages parameter attachments (SliderAttachment)
 - `changeSliderParameter()` to rebind sliders to different pad parameters
 
@@ -232,6 +240,30 @@ Next audio block uses new values
 ---
 
 ## Parameter System
+
+### Parameters per Pad (18 total × 16 pads = 288 parameters)
+
+| Parameter | ID | Range | Default |
+|---|---|---|---|
+| Gain | `GAIN[n]` | -42 to +24 dB | 0 dB |
+| Attack | `ATTACK[n]` | 0–1 | 0.02 |
+| Decay | `DECAY[n]` | 0–1 | 0.5 |
+| Sustain | `SUSTAIN[n]` | 0–1 | 1.0 |
+| Release | `RELEASE[n]` | 0–1 | 0.2 |
+| Start Offset | `START_OFFSET[n]` | 0–1 | 0 |
+| End Offset | `END_OFFSET[n]` | 0–1 | 1 |
+| Fade Start | `FADE_START[n]` | 0–1 | 0.8 |
+| Fade End | `FADE_END[n]` | 0–1 | 1 |
+| Detune | `DETUNE[n]` | -24 to +24 st | 0 |
+| EQ Low | `EQ_LOW[n]` | -12 to +12 dB | 0 |
+| EQ Mid | `EQ_MID[n]` | -12 to +12 dB | 0 |
+| EQ High | `EQ_HIGH[n]` | -12 to +12 dB | 0 |
+| Lowpass | `LOWPASS[n]` | 200–20000 Hz | 20000 |
+| Highpass | `HIGHPASS[n]` | 20–18000 Hz | 20 |
+| Vel→LP | `VEL_TO_LOWPASS[n]` | 0–1 | 0 |
+| Vel→Atk | `VEL_TO_ATTACK[n]` | 0–1 | 0 |
+
+> Suffix `[n]`: pad 1 has no suffix, pads 2–16 use suffix `2`–`16`.
 
 ### Creating Parameters
 **File**: PluginProcessor.cpp `createParameters()`

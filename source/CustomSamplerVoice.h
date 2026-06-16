@@ -50,6 +50,13 @@ public:
     void setHighpassCutoff(float hz) { highpassCutoff = juce::jlimit(20.0f, 18000.0f, hz); }
     float getHighpassCutoff() const { return highpassCutoff; }
 
+    void setEqLowDb(float db)  { eqLowDb  = juce::jlimit(-12.0f, 12.0f, db); }
+    float getEqLowDb()  const  { return eqLowDb; }
+    void setEqMidDb(float db)  { eqMidDb  = juce::jlimit(-12.0f, 12.0f, db); }
+    float getEqMidDb()  const  { return eqMidDb; }
+    void setEqHighDb(float db) { eqHighDb = juce::jlimit(-12.0f, 12.0f, db); }
+    float getEqHighDb() const  { return eqHighDb; }
+
     void setGainLinear(float g) { gainLinear = juce::jlimit(0.0f, 4.0f, g); }
     float getGainLinear() const { return gainLinear; }
 
@@ -67,6 +74,9 @@ private:
     float lowpassCutoff = 20000.0f;
     float velToLowpass = 0.0f;
     float highpassCutoff = 20.0f;
+    float eqLowDb  = 0.0f;
+    float eqMidDb  = 0.0f;
+    float eqHighDb = 0.0f;
     float gainLinear = 1.0f;
     int outputBusIndex = 0;
     double sourceSampleRate = 44100.0;
@@ -117,6 +127,20 @@ public:
             {
                 f.setCoefficients(hpCoeffs);
                 f.reset();
+            }
+
+            // Set up EQ filter coefficients
+            auto eqLowCoeffs = juce::IIRCoefficients::makeLowShelf(
+                hostRate, 100.0, 0.7, juce::Decibels::decibelsToGain(sound->getEqLowDb()));
+            auto eqMidCoeffs = juce::IIRCoefficients::makePeakFilter(
+                hostRate, 1000.0, 0.7, juce::Decibels::decibelsToGain(sound->getEqMidDb()));
+            auto eqHighCoeffs = juce::IIRCoefficients::makeHighShelf(
+                hostRate, 8000.0, 0.7, juce::Decibels::decibelsToGain(sound->getEqHighDb()));
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                eqLowFilters[ch].setCoefficients(eqLowCoeffs);   eqLowFilters[ch].reset();
+                eqMidFilters[ch].setCoefficients(eqMidCoeffs);   eqMidFilters[ch].reset();
+                eqHighFilters[ch].setCoefficients(eqHighCoeffs); eqHighFilters[ch].reset();
             }
 
             float offset = sound->getStartOffset();
@@ -187,10 +211,19 @@ public:
             }
             auto lpCoeffs = juce::IIRCoefficients::makeLowPass(hostRate, (double)lpCutoff);
             auto hpCoeffs = juce::IIRCoefficients::makeHighPass(hostRate, (double)playingSound->getHighpassCutoff());
+            auto eqLowCoeffs = juce::IIRCoefficients::makeLowShelf(
+                hostRate, 100.0, 0.7, juce::Decibels::decibelsToGain(playingSound->getEqLowDb()));
+            auto eqMidCoeffs = juce::IIRCoefficients::makePeakFilter(
+                hostRate, 1000.0, 0.7, juce::Decibels::decibelsToGain(playingSound->getEqMidDb()));
+            auto eqHighCoeffs = juce::IIRCoefficients::makeHighShelf(
+                hostRate, 8000.0, 0.7, juce::Decibels::decibelsToGain(playingSound->getEqHighDb()));
             for (int ch = 0; ch < 2; ++ch)
             {
                 lowpassFilters[ch].setCoefficients(lpCoeffs);
                 highpassFilters[ch].setCoefficients(hpCoeffs);
+                eqLowFilters[ch].setCoefficients(eqLowCoeffs);
+                eqMidFilters[ch].setCoefficients(eqMidCoeffs);
+                eqHighFilters[ch].setCoefficients(eqHighCoeffs);
             }
 
             for (int i = 0; i < numSamples; ++i)
@@ -238,6 +271,9 @@ public:
                     int filterIdx = juce::jmin(channel, 1);
                     sample = lowpassFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = highpassFilters[filterIdx].processSingleSampleRaw(sample);
+                    sample = eqLowFilters[filterIdx].processSingleSampleRaw(sample);
+                    sample = eqMidFilters[filterIdx].processSingleSampleRaw(sample);
+                    sample = eqHighFilters[filterIdx].processSingleSampleRaw(sample);
                     outputBuffer.addSample(targetCh, startSample + i, sample * envelopeValue);
                 }
                 currentSamplePos += pitchRatio;
@@ -258,4 +294,7 @@ private:
     juce::ADSR adsr;
     juce::IIRFilter lowpassFilters[2];
     juce::IIRFilter highpassFilters[2];
+    juce::IIRFilter eqLowFilters[2];
+    juce::IIRFilter eqMidFilters[2];
+    juce::IIRFilter eqHighFilters[2];
 };

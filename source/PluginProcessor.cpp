@@ -292,20 +292,137 @@ juce::AudioProcessorEditor* DrumSamplerAudioProcessor::createEditor()
 }
 
 //==============================================================================
+// Builds the shared XML structure used by both DAW preset saving and .drumkit files.
+static std::unique_ptr<juce::XmlElement> buildDrumSetXml(
+    const std::array<DrumPad, NUM_PADS>& pads,
+    juce::AudioProcessorValueTreeState& apvts)
+{
+    auto root = std::make_unique<juce::XmlElement>("DrumSet");
+    root->setAttribute("version", 1);
+
+    auto* samplesEl = root->createNewChildElement("Samples");
+    for (int i = 0; i < NUM_PADS; ++i)
+    {
+        if (pads[static_cast<size_t>(i)].sampleFile.existsAsFile())
+        {
+            auto* pad = samplesEl->createNewChildElement("Pad");
+            pad->setAttribute("index", i);
+            pad->setAttribute("path", pads[static_cast<size_t>(i)].sampleFile.getFullPathName());
+        }
+    }
+
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> paramsXml(state.createXml());
+    root->addChildElement(paramsXml.release());
+
+    return root;
+}
+
 void DrumSamplerAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    auto state = mAPVSTATE.copyState();
-    std::unique_ptr<juce::XmlElement> xml(state.createXml());
+    auto xml = buildDrumSetXml(pads, mAPVSTATE);
     copyXmlToBinary(*xml, destData);
 }
 
 void DrumSamplerAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
+    std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
+    if (xml == nullptr) return;
 
-    if (xmlState.get() != nullptr)
-        if (xmlState->hasTagName(mAPVSTATE.state.getType()))
-            mAPVSTATE.replaceState(juce::ValueTree::fromXml(*xmlState));
+    // New format: <DrumSet> with nested <Samples> and APVTS child
+    if (xml->hasTagName("DrumSet"))
+    {
+        if (auto* samplesEl = xml->getChildByName("Samples"))
+        {
+            for (auto* padEl : samplesEl->getChildIterator())
+            {
+                int index = padEl->getIntAttribute("index", -1);
+                juce::String path = padEl->getStringAttribute("path");
+                if (index >= 0 && index < NUM_PADS && path.isNotEmpty())
+                {
+                    juce::File f(path);
+                    if (f.existsAsFile())
+                        loadFile(path, MIDI_NOTES[index], {});
+                }
+            }
+        }
+        // Restore parameters (first non-Samples child is the APVTS tree)
+        for (auto* child : xml->getChildIterator())
+        {
+            if (!child->hasTagName("Samples"))
+            {
+                mAPVSTATE.replaceState(juce::ValueTree::fromXml(*child));
+                break;
+            }
+        }
+        // Re-apply all parameters now that state is restored
+        for (int i = 0; i < NUM_PADS; ++i)
+            updateADSR(i);
+    }
+    else if (xml->hasTagName(mAPVSTATE.state.getType()))
+    {
+        // Legacy format: plain APVTS XML (no sample paths)
+        mAPVSTATE.replaceState(juce::ValueTree::fromXml(*xml));
+    }
+}
+
+void DrumSamplerAudioProcessor::saveDrumSet(const juce::File& file)
+{
+    auto xml = buildDrumSetXml(pads, mAPVSTATE);
+    if (!xml->writeTo(file))
+        juce::Logger::writeToLog("ERROR: Failed to write drum set to: " + file.getFullPathName());
+}
+
+void DrumSamplerAudioProcessor::loadDrumSet(const juce::File& file, std::function<void()> onComplete)
+{
+    if (!file.existsAsFile())
+    {
+        juce::Logger::writeToLog("ERROR: Drum set file not found: " + file.getFullPathName());
+        return;
+    }
+
+    std::unique_ptr<juce::XmlElement> xml(juce::XmlDocument::parse(file));
+    if (xml == nullptr || !xml->hasTagName("DrumSet"))
+    {
+        juce::Logger::writeToLog("ERROR: Invalid drum set file: " + file.getFullPathName());
+        return;
+    }
+
+    // Clear all pads first
+    for (int i = 0; i < NUM_PADS; ++i)
+        clearPad(MIDI_NOTES[i]);
+
+    if (auto* samplesEl = xml->getChildByName("Samples"))
+    {
+        for (auto* padEl : samplesEl->getChildIterator())
+        {
+            int index = padEl->getIntAttribute("index", -1);
+            juce::String path = padEl->getStringAttribute("path");
+            if (index >= 0 && index < NUM_PADS && path.isNotEmpty())
+            {
+                juce::File f(path);
+                if (f.existsAsFile())
+                    loadFile(path, MIDI_NOTES[index], {});
+                else
+                    juce::Logger::writeToLog("WARNING: Sample file missing: " + path);
+            }
+        }
+    }
+
+    for (auto* child : xml->getChildIterator())
+    {
+        if (!child->hasTagName("Samples"))
+        {
+            mAPVSTATE.replaceState(juce::ValueTree::fromXml(*child));
+            break;
+        }
+    }
+
+    for (int i = 0; i < NUM_PADS; ++i)
+        updateADSR(i);
+
+    if (onComplete)
+        onComplete();
 }
 
 
@@ -341,6 +458,9 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("HIGHPASS",     20.0f);
     setDefault("VEL_TO_LOWPASS",0.0f);
     setDefault("VEL_TO_ATTACK",0.0f);
+    setDefault("EQ_LOW",       0.0f);
+    setDefault("EQ_MID",       0.0f);
+    setDefault("EQ_HIGH",      0.0f);
 }
 
 void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
@@ -556,6 +676,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         ));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_LOWPASS" + suffix, 1), "Vel>LP", 0.0f, 1.0f, 0.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), "Vel>Atk", 0.0f, 1.0f, 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("EQ_LOW" + suffix, 1), "EQ Low",
+            juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f, "dB"));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("EQ_MID" + suffix, 1), "EQ Mid",
+            juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f, "dB"));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("EQ_HIGH" + suffix, 1), "EQ High",
+            juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f, "dB"));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -691,6 +820,21 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("VEL_TO_ATTACK" + suffix))
                     velToAtk = v->load();
                 sound->setVelToAttack(velToAtk);
+
+                float eqLow = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("EQ_LOW" + suffix))
+                    eqLow = v->load();
+                sound->setEqLowDb(eqLow);
+
+                float eqMid = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("EQ_MID" + suffix))
+                    eqMid = v->load();
+                sound->setEqMidDb(eqMid);
+
+                float eqHigh = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("EQ_HIGH" + suffix))
+                    eqHigh = v->load();
+                sound->setEqHighDb(eqHigh);
 
                 float startOff = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))
@@ -878,17 +1022,16 @@ void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& tree, 
             {
                 if (auto* p = mAPVSTATE.getParameter("ATTACK" + suffix))
                 {
-                    float currentVal = p->getValue(); // normalized 0-1
+                    float currentVal = p->getValue();
                     float newValAtk = juce::jlimit(0.0f, 1.0f, currentVal + delta);
                     p->setValueNotifyingHost(newValAtk);
                 }
             }
         }
-        
-        // Immediately update the internal sound parameters for the affected pad
-        updateADSR(padIdx);
-    }
 
-    mShouldUpdate = true;
-    mUpdateCount = 2;
+        // Tell the audio thread which pad to update — it will call updateADSR safely.
+        sampleIndex = padIdx;
+        mShouldUpdate = true;
+        mUpdateCount = 2;
+    }
 }

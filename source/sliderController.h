@@ -134,6 +134,9 @@ private:
 
     sliderController GainSlider{ "Gain" };
     sliderController DetuneSlider{ "Detune" };
+    sliderController EqLowSlider{ "EQ Lo" };
+    sliderController EqMidSlider{ "EQ Mid" };
+    sliderController EqHighSlider{ "EQ Hi" };
     sliderController LowpassSlider{ "Lowpass" };
     sliderController HighpassSlider{ "Highpass" };
     sliderController VelToLowpassSlider{ "Vel>LP" };
@@ -141,6 +144,9 @@ private:
 
     std::unique_ptr<SliderAttachment> mGainAttachment;
     std::unique_ptr<SliderAttachment> mDetuneAttachment;
+    std::unique_ptr<SliderAttachment> mEqLowAttachment;
+    std::unique_ptr<SliderAttachment> mEqMidAttachment;
+    std::unique_ptr<SliderAttachment> mEqHighAttachment;
     std::unique_ptr<SliderAttachment> mLowpassAttachment;
     std::unique_ptr<SliderAttachment> mHighpassAttachment;
     std::unique_ptr<SliderAttachment> mVelToLowpassAttachment;
@@ -148,6 +154,9 @@ private:
 
     juce::Label labelGain{ {}, "Gain" };
     juce::Label labelDetune{ {}, "Detune" };
+    juce::Label labelEqLow{ {}, "EQ Lo" };
+    juce::Label labelEqMid{ {}, "EQ Mid" };
+    juce::Label labelEqHigh{ {}, "EQ Hi" };
     juce::Label labelLowpass{ {}, "Lowpass" };
     juce::Label labelHighpass{ {}, "Highpass" };
     juce::Label labelVelToLP{ {}, "Vel>LP" };

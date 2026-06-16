@@ -38,6 +38,9 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
 
     setupLabel(labelGain);
     setupLabel(labelDetune);
+    setupLabel(labelEqLow);
+    setupLabel(labelEqMid);
+    setupLabel(labelEqHigh);
     setupLabel(labelLowpass);
     setupLabel(labelHighpass);
     setupLabel(labelVelToLP);
@@ -50,6 +53,18 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&DetuneSlider);
     DetuneSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mDetuneAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "DETUNE", DetuneSlider);
+
+    addAndMakeVisible(&EqLowSlider);
+    EqLowSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mEqLowAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "EQ_LOW", EqLowSlider);
+
+    addAndMakeVisible(&EqMidSlider);
+    EqMidSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mEqMidAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "EQ_MID", EqMidSlider);
+
+    addAndMakeVisible(&EqHighSlider);
+    EqHighSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mEqHighAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "EQ_HIGH", EqHighSlider);
 
     addAndMakeVisible(&LowpassSlider);
     LowpassSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -70,25 +85,33 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
 
 void controlSlidersBlock::resized() {
 
-    const auto labelH = 16;
-    const auto sWidth = 75;
+    const auto labelH  = 16;
+    const auto sWidth  = 75;
     const auto sHeight = 75;
-    const auto row1Y = 10;
-    const auto gap = (getWidth() - (sWidth * 6)) / 7;
+    const auto rowH    = labelH + sHeight;  // 91px per row
+    const auto row1Y   = 5;
+    const auto row2Y   = row1Y + rowH + 8;
 
+    // Row 1: 5 knobs — Gain, Detune, EQ Lo, EQ Mid, EQ Hi
+    const auto gap1 = (getWidth() - (sWidth * 5)) / 6;
     auto placeSlider = [&](sliderController& s, juce::Label& lbl, int x, int y)
     {
         lbl.setBounds(x, y, sWidth, labelH);
         s.setBounds(x, y + labelH, sWidth, sHeight);
     };
 
-    // Row 1: Gain, Detune, Lowpass, Highpass, Vel>LP, Vel>Atk
-    placeSlider(GainSlider,          labelGain,     gap,                row1Y);
-    placeSlider(DetuneSlider,        labelDetune,   gap * 2 + sWidth,   row1Y);
-    placeSlider(LowpassSlider,       labelLowpass,  gap * 3 + sWidth*2, row1Y);
-    placeSlider(HighpassSlider,      labelHighpass, gap * 4 + sWidth*3, row1Y);
-    placeSlider(VelToLowpassSlider,  labelVelToLP,  gap * 5 + sWidth*4, row1Y);
-    placeSlider(VelToAttackSlider,   labelVelToAtk, gap * 6 + sWidth*5, row1Y);
+    placeSlider(GainSlider,    labelGain,    gap1,                row1Y);
+    placeSlider(DetuneSlider,  labelDetune,  gap1 * 2 + sWidth,   row1Y);
+    placeSlider(EqLowSlider,   labelEqLow,   gap1 * 3 + sWidth*2, row1Y);
+    placeSlider(EqMidSlider,   labelEqMid,   gap1 * 4 + sWidth*3, row1Y);
+    placeSlider(EqHighSlider,  labelEqHigh,  gap1 * 5 + sWidth*4, row1Y);
+
+    // Row 2: 4 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk
+    const auto gap2 = (getWidth() - (sWidth * 4)) / 5;
+    placeSlider(LowpassSlider,      labelLowpass,  gap2,                row2Y);
+    placeSlider(HighpassSlider,     labelHighpass, gap2 * 2 + sWidth,   row2Y);
+    placeSlider(VelToLowpassSlider, labelVelToLP,  gap2 * 3 + sWidth*2, row2Y);
+    placeSlider(VelToAttackSlider,  labelVelToAtk, gap2 * 4 + sWidth*3, row2Y);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& /*g*/)
@@ -103,6 +126,18 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "Detune") {
         mDetuneAttachment.reset();
         mDetuneAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, DetuneSlider);
+    }
+    if (sliderName == "EqLow") {
+        mEqLowAttachment.reset();
+        mEqLowAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, EqLowSlider);
+    }
+    if (sliderName == "EqMid") {
+        mEqMidAttachment.reset();
+        mEqMidAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, EqMidSlider);
+    }
+    if (sliderName == "EqHigh") {
+        mEqHighAttachment.reset();
+        mEqHighAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, EqHighSlider);
     }
     if (sliderName == "Lowpass") {
         mLowpassAttachment.reset();

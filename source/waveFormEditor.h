@@ -70,6 +70,7 @@ public:
     float getStartPosInSec() { return newPositionInSeconds; }
     void setPosition(float positionInSeconds);
     void setNormalizedOffset(float offsetRatio01);
+    void resized() override;
 
 private:
     float lengthLineX = 0.0f;
@@ -91,6 +92,7 @@ public:
     bool hitTest(int x, int y) override;
     void mouseDrag(const juce::MouseEvent& event) override;
     void timerCallback() override;
+    void resized() override;
     void setNormalizedOffset(float offsetRatio01);
 
 private:

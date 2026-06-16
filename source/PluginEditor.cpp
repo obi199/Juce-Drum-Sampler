@@ -19,7 +19,52 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     addAndMakeVisible(&position);
     addAndMakeVisible(&start);
     addAndMakeVisible(&end);
-    addAndMakeVisible(&adsrOverlay);  // on top — hitTest passes through when not near a handle
+    addAndMakeVisible(&adsrOverlay);
+
+    // Save / Load Kit buttons
+    saveKitButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2a4a2a));
+    saveKitButton.setColour(juce::TextButton::textColourOffId, juce::Colours::lightgreen);
+    addAndMakeVisible(saveKitButton);
+    saveKitButton.onClick = [this]()
+    {
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Save Drum Set", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+            "*.drumkit");
+        fileChooser->launchAsync(juce::FileBrowserComponent::saveMode |
+                                 juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& fc)
+            {
+                auto file = fc.getResult();
+                if (file != juce::File{})
+                {
+                    auto target = file.withFileExtension("drumkit");
+                    audioProcessor.saveDrumSet(target);
+                }
+            });
+    };
+
+    loadKitButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2a2a4a));
+    loadKitButton.setColour(juce::TextButton::textColourOffId, juce::Colours::lightyellow);
+    addAndMakeVisible(loadKitButton);
+    loadKitButton.onClick = [this]()
+    {
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Load Drum Set", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory),
+            "*.drumkit");
+        fileChooser->launchAsync(juce::FileBrowserComponent::openMode |
+                                 juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& fc)
+            {
+                auto file = fc.getResult();
+                if (file.existsAsFile())
+                {
+                    audioProcessor.loadDrumSet(file, [this]()
+                    {
+                        juce::MessageManager::callAsync([this]() { refreshAllPads(); });
+                    });
+                }
+            });
+    };
 
     // Create 16 pads dynamically
     padButtons.reserve(NUM_PADS);
@@ -94,9 +139,16 @@ void DrumSamplerAudioProcessorEditor::resized()
     int rightWidth = getWidth() - rightX - 10; // 10px right margin
     int totalHeight = getHeight();
 
-    // Waveform at the top right
-    int waveHeight = (totalHeight / 2) - 15;
-    juce::Rectangle<int> thumbnailBounds (rightX, 10, rightWidth, waveHeight);
+    // Save / Load buttons at the very top of the right panel
+    const int btnH = 24;
+    const int btnW = (rightWidth - 10) / 2;
+    saveKitButton.setBounds(rightX,             5, btnW, btnH);
+    loadKitButton.setBounds(rightX + btnW + 10, 5, btnW, btnH);
+
+    // Waveform below the buttons
+    int waveTop = 5 + btnH + 6;
+    int waveHeight = (totalHeight / 2) - waveTop - 5;
+    juce::Rectangle<int> thumbnailBounds(rightX, waveTop, rightWidth, waveHeight);
     waveComponent.setBounds(thumbnailBounds);
     position.setBounds(thumbnailBounds);
     start.setBounds(thumbnailBounds);
@@ -135,12 +187,16 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("GAIN" + suffix, "Gain");
     CBlock.changeSliderParameter("VEL_TO_ATTACK" + suffix, "VelToAttack");
     CBlock.changeSliderParameter("DETUNE" + suffix, "Detune");
+    CBlock.changeSliderParameter("EQ_LOW" + suffix, "EqLow");
+    CBlock.changeSliderParameter("EQ_MID" + suffix, "EqMid");
+    CBlock.changeSliderParameter("EQ_HIGH" + suffix, "EqHigh");
     CBlock.changeSliderParameter("LOWPASS" + suffix, "Lowpass");
     CBlock.changeSliderParameter("HIGHPASS" + suffix, "Highpass");
     CBlock.changeSliderParameter("VEL_TO_LOWPASS" + suffix, "VelToLowpass");
 
-    // Update ADSR for this pad
-    audioProcessor.updateADSR(padIndex);
+    // Note: updateADSR is intentionally NOT called here — parameter changes from
+    // changeSliderParameter fire valueTreePropertyChanged which queues the update
+    // safely for the audio thread via mShouldUpdate/mUpdateCount.
 
     // Reset the draggable start line to the pad's stored offset
     int noteNumber = MIDI_NOTES[padIndex];
@@ -159,6 +215,20 @@ void DrumSamplerAudioProcessorEditor::ButtonClicked(juce::Button* /*button*/, in
 
     switchTopad(padIndex);
     audioProcessor.playFile(noteNumber);
+}
+
+void DrumSamplerAudioProcessorEditor::refreshAllPads()
+{
+    for (int i = 0; i < NUM_PADS; ++i)
+    {
+        if (i >= (int)padButtons.size()) break;
+        auto& btn = *padButtons[static_cast<size_t>(i)];
+        if (audioProcessor.hasSampleLoaded(i))
+            btn.setFilename(audioProcessor.getSampleFile(i).getFileName());
+        else
+            btn.clearSample();
+    }
+    switchTopad(0);
 }
 
 void DrumSamplerAudioProcessorEditor::timerCallback()

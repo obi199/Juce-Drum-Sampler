@@ -35,6 +35,7 @@ public:
 
     void ButtonClicked(juce::Button* button, int noteNumber);
     void switchTopad(int padIndex);
+    void refreshAllPads();
     void timerCallback() override;
     juce::File audioFile;
 
@@ -52,6 +53,10 @@ private:
     ADSROverlay adsrOverlay{ audioProcessor };
 
     int lastDisplayedPadIndex = -1;
+
+    juce::TextButton saveKitButton{ "Save Kit" };
+    juce::TextButton loadKitButton{ "Load Kit" };
+    std::unique_ptr<juce::FileChooser> fileChooser;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DrumSamplerAudioProcessorEditor)
 };

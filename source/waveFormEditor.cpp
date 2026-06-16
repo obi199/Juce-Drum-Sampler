@@ -214,18 +214,23 @@ void startLine::setPosition(float positionInSeconds)
 
 void startLine::setNormalizedOffset(float offsetRatio01)
 {
-    // Clamp ratio to [0,1]
     float r = juce::jlimit(0.0f, 1.0f, offsetRatio01);
-    // Set visual immediately based on component width (no need for audio length here)
     lengthLineX = r * (float)getWidth();
 
-    // Update processor seconds if we know audio length; otherwise leave as is
     auto audioLength = (float)Processor.thumbnail.getTotalLength();
     if (audioLength > 0.0f)
         newPositionInSeconds = r * audioLength;
     Processor.newPositionSec = newPositionInSeconds;
 
     repaint();
+}
+
+void startLine::resized()
+{
+    // Recompute pixel position now that we have a real width.
+    // Use lastKnobValue if already known, otherwise read from APVTS.
+    float r = (lastKnobValue >= 0.0f) ? lastKnobValue : 0.0f;
+    lengthLineX = r * (float)getWidth();
 }
 
 
@@ -290,6 +295,13 @@ void endLine::setNormalizedOffset(float offsetRatio01)
     float r = juce::jlimit(0.0f, 1.0f, offsetRatio01);
     lengthLineX = r * (float)getWidth();
     repaint();
+}
+
+void endLine::resized()
+{
+    // Recompute pixel position now that we have a real width.
+    float r = (lastKnobValue >= 0.0f) ? lastKnobValue : 1.0f;
+    lengthLineX = r * (float)getWidth();
 }
 
 
@@ -462,12 +474,10 @@ void ADSROverlay::mouseDrag(const juce::MouseEvent& event)
             auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
             if (auto* p = Processor.getAPVTS().getParameter("FADE_START" + suffix))
                 p->setValueNotifyingHost(newVal);
-            Processor.updateADSR(padIndex);
             break;
         }
         case DragHandle::FadeEnd:
         {
-            // Clamp between decayX and endX
             float dx = decayX();
             float ex = endX();
             float clampedX = juce::jlimit(dx + 12.0f, ex, x);
@@ -476,7 +486,6 @@ void ADSROverlay::mouseDrag(const juce::MouseEvent& event)
             auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
             if (auto* p = Processor.getAPVTS().getParameter("FADE_END" + suffix))
                 p->setValueNotifyingHost(newVal);
-            Processor.updateADSR(padIndex);
             break;
         }
         case DragHandle::None:
