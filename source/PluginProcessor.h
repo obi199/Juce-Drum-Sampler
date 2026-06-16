@@ -97,7 +97,7 @@ public:
     void updateADSR(int);
     float updateGain(int);
     
-    juce::ADSR::Parameters& getADSRparams() { return pads[static_cast<size_t>(sampleIndex)].adsr; }
+    juce::ADSR::Parameters& getADSRparams() { return pads[static_cast<size_t>(sampleIndex.load())].adsr; }
     juce::AudioProcessorValueTreeState& getAPVTS() { return mAPVSTATE; }
     
     std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
@@ -106,6 +106,7 @@ public:
     float getPosInSec() { return currentPositionInSeconds; }
     int getCurrentPadIndex() const { return uiPadIndex; }
     void setUIPadIndex(int i) { uiPadIndex = i; }
+    void schedulePadUpdate(int padIndex);
     
     int samplePlayed(int midiNote);
     float newPositionSec = 0;
@@ -147,7 +148,7 @@ private:
     
     float currentPositionInSeconds = 0;
     double mSamplerate = 48000.0;
-    int sampleIndex = 0;
+    std::atomic<int> sampleIndex{ 0 };
     int uiPadIndex  = 0;
     float currentGain = 0.2f;
     

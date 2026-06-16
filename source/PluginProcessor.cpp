@@ -193,7 +193,7 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     // Update gain and ADSR for the currently active pad before rendering
     if (mUpdateCount > 0)
     {
-        updateADSR(sampleIndex);
+        updateADSR(sampleIndex.load());
         mUpdateCount--;
         if (mUpdateCount == 0)
             mShouldUpdate = false;
@@ -627,6 +627,9 @@ void DrumSamplerAudioProcessor::playFile(int midiNoteNumber)
         }
     }
 
+    // Ensure sound parameters are current before the voice reads them in startNote.
+    updateADSR(padIndex);
+
     mSampler.noteOn(1, midiNoteNumber, velocity);
     samplePlayed(midiNoteNumber);
 }
@@ -984,10 +987,18 @@ int DrumSamplerAudioProcessor::samplePlayed(int midiNote)
     int padIndex = getPadIndexFromMidiNote(midiNote);
     if (padIndex != -1)
     {
-        sampleIndex = padIndex;
+        sampleIndex.store(padIndex);
         mSampleCount = 0; // Reset sample count when a note is played
     }
-    return sampleIndex;
+    return sampleIndex.load();
+}
+
+void DrumSamplerAudioProcessor::schedulePadUpdate(int padIndex)
+{
+    if (padIndex < 0 || padIndex >= NUM_PADS) return;
+    sampleIndex.store(padIndex);
+    mShouldUpdate = true;
+    mUpdateCount  = 2;
 }
 
 //==============================================================================
@@ -1030,7 +1041,7 @@ void DrumSamplerAudioProcessor::valueTreePropertyChanged(juce::ValueTree& tree, 
         }
 
         // Tell the audio thread which pad to update — it will call updateADSR safely.
-        sampleIndex = padIdx;
+        sampleIndex.store(padIdx);
         mShouldUpdate = true;
         mUpdateCount = 2;
     }

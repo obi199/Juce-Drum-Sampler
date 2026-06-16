@@ -194,9 +194,10 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("HIGHPASS" + suffix, "Highpass");
     CBlock.changeSliderParameter("VEL_TO_LOWPASS" + suffix, "VelToLowpass");
 
-    // Note: updateADSR is intentionally NOT called here — parameter changes from
-    // changeSliderParameter fire valueTreePropertyChanged which queues the update
-    // safely for the audio thread via mShouldUpdate/mUpdateCount.
+    // Apply the new pad's current parameter values to its sound. SliderAttachment
+    // creation syncs the slider FROM the parameter (not the reverse), so
+    // valueTreePropertyChanged is never triggered -- schedule the update for the audio thread.
+    audioProcessor.schedulePadUpdate(padIndex);
 
     // Reset the draggable start line to the pad's stored offset
     int noteNumber = MIDI_NOTES[padIndex];
