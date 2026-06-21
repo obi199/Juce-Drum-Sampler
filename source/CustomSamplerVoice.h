@@ -163,6 +163,7 @@ public:
             }
 
             adsr.setSampleRate(hostRate);
+            reverb.setSampleRate(hostRate);
 
             // Modulate attack time based on velocity and Vel>Atk amount
             auto params = sound->getEnvelopeParameters();
