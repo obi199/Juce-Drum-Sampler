@@ -60,6 +60,12 @@ public:
     void setDistortionDrive(float d) { distortionDrive = juce::jlimit(0.0f, 1.0f, d); }
     float getDistortionDrive() const { return distortionDrive; }
 
+    void setReverbMix(float m) { reverbMix = juce::jlimit(0.0f, 1.0f, m); }
+    float getReverbMix() const { return reverbMix; }
+
+    void setReverbDecay(float d) { reverbDecay = juce::jlimit(0.0f, 1.0f, d); }
+    float getReverbDecay() const { return reverbDecay; }
+
     void setGainLinear(float g) { gainLinear = juce::jlimit(0.0f, 4.0f, g); }
     float getGainLinear() const { return gainLinear; }
 
@@ -81,6 +87,8 @@ private:
     float eqMidDb  = 0.0f;
     float eqHighDb = 0.0f;
     float distortionDrive = 0.0f;
+    float reverbMix = 0.0f;
+    float reverbDecay = 0.5f;
     float gainLinear = 1.0f;
     int outputBusIndex = 0;
     double sourceSampleRate = 44100.0;
@@ -186,11 +194,50 @@ public:
             adsr.reset();
             currentSamplePos = 0.0;
             fadeTriggered = false;
+            reverbTailMode = false;
+            reverbTailSamplesLeft = 0;
         }
     }
 
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) override
     {
+        // Continue processing reverb tail after sample has ended
+        if (reverbTailMode)
+        {
+            reverbTailSamplesLeft -= numSamples;
+            if (reverbTailSamplesLeft <= 0)
+            {
+                reverbTailMode = false;
+                clearCurrentNote();
+                return;
+            }
+
+            // Feed silence through the reverb to let the tail ring out
+            juce::Reverb::Parameters rp;
+            rp.roomSize   = lastReverbDecay;
+            rp.damping    = 0.4f;
+            rp.wetLevel   = lastReverbMix;
+            rp.dryLevel   = 0.0f;  // no dry signal during tail
+            rp.width      = 1.0f;
+            rp.freezeMode = 0.0f;
+            reverb.setParameters(rp);
+
+            // Create a temp buffer of silence, process reverb, add to output
+            juce::AudioBuffer<float> silenceBuf(2, numSamples);
+            silenceBuf.clear();
+            reverb.processStereo(silenceBuf.getWritePointer(0),
+                                 silenceBuf.getWritePointer(1),
+                                 numSamples);
+
+            int ch0 = lastBusOffset;
+            int ch1 = lastBusOffset + 1;
+            if (ch0 < outputBuffer.getNumChannels())
+                outputBuffer.addFrom(ch0, startSample, silenceBuf, 0, 0, numSamples);
+            if (ch1 < outputBuffer.getNumChannels())
+                outputBuffer.addFrom(ch1, startSample, silenceBuf, 1, 0, numSamples);
+            return;
+        }
+
         if (auto* playingSound = dynamic_cast<CustomSamplerSound*>(getCurrentlyPlayingSound().get()))
         {
             auto* data = playingSound->getAudioData();
@@ -230,13 +277,13 @@ public:
                 eqHighFilters[ch].setCoefficients(eqHighCoeffs);
             }
 
+            bool sampleFinished = false;
             for (int i = 0; i < numSamples; ++i)
             {
                 int pos0 = static_cast<int>(currentSamplePos);
                 if (pos0 >= sampleLength - 1 || pos0 >= endSamplePos)
                 {
-                    clearCurrentNote();
-                    adsr.reset();
+                    sampleFinished = true;
                     break;
                 }
 
@@ -251,9 +298,7 @@ public:
 
                 if (!adsr.isActive())
                 {
-                    clearCurrentNote();
-                    adsr.reset();
-                    currentSamplePos = 0.0;
+                    sampleFinished = true;
                     break;
                 }
 
@@ -291,6 +336,62 @@ public:
                 }
                 currentSamplePos += pitchRatio;
             }
+
+            // Apply reverb as a post-process (block-based) if mix > 0
+            float revMix = playingSound->getReverbMix();
+            if (revMix > 0.0f)
+            {
+                int busOffset = playingSound->getOutputBusIndex() * 2;
+                // Prepare reverb parameters
+                juce::Reverb::Parameters rp;
+                rp.roomSize   = playingSound->getReverbDecay();
+                rp.damping    = 0.4f;
+                rp.wetLevel   = revMix;
+                rp.dryLevel   = 1.0f - revMix;
+                rp.width      = 1.0f;
+                rp.freezeMode = 0.0f;
+                reverb.setParameters(rp);
+
+                // Process in-place on the output buffer region we just wrote to
+                int ch0 = busOffset;
+                int ch1 = busOffset + 1;
+                if (ch1 < outputBuffer.getNumChannels())
+                {
+                    reverb.processStereo(outputBuffer.getWritePointer(ch0, startSample),
+                                         outputBuffer.getWritePointer(ch1, startSample),
+                                         numSamples);
+                }
+                else if (ch0 < outputBuffer.getNumChannels())
+                {
+                    reverb.processMono(outputBuffer.getWritePointer(ch0, startSample),
+                                       numSamples);
+                }
+            }
+
+            // If sample finished, enter reverb tail mode or clear the voice
+            if (sampleFinished)
+            {
+                adsr.reset();
+                currentSamplePos = 0.0;
+                fadeTriggered = false;
+
+                if (revMix > 0.0f)
+                {
+                    // Keep voice alive to let reverb tail ring out
+                    reverbTailMode = true;
+                    // Tail length based on room size: up to ~4 seconds at max decay
+                    double sr = getSampleRate();
+                    float decay = playingSound->getReverbDecay();
+                    reverbTailSamplesLeft = static_cast<int>(sr * (1.0f + decay * 3.0f));
+                    lastReverbMix = revMix;
+                    lastReverbDecay = decay;
+                    lastBusOffset = playingSound->getOutputBusIndex() * 2;
+                }
+                else
+                {
+                    clearCurrentNote();
+                }
+            }
         }
     }
 
@@ -301,6 +402,11 @@ public:
 private:
     double currentSamplePos = 0.0;
     bool fadeTriggered = false;
+    bool reverbTailMode = false;
+    int reverbTailSamplesLeft = 0;
+    float lastReverbMix = 0.0f;
+    float lastReverbDecay = 0.5f;
+    int lastBusOffset = 0;
     double pitchRatio = 1.0;
     float currentGain = 1.0f;
     float noteVelocity = 1.0f;
@@ -310,4 +416,5 @@ private:
     juce::IIRFilter eqLowFilters[2];
     juce::IIRFilter eqMidFilters[2];
     juce::IIRFilter eqHighFilters[2];
+    juce::Reverb reverb;
 };

@@ -142,6 +142,8 @@ private:
     sliderController VelToLowpassSlider{ "Vel>LP" };
     sliderController VelToAttackSlider{ "Vel>Atk" };
     sliderController DistortionSlider{ "Dist" };
+    sliderController ReverbSlider{ "Reverb" };
+    sliderController ReverbDecaySlider{ "Decay" };
 
     std::unique_ptr<SliderAttachment> mGainAttachment;
     std::unique_ptr<SliderAttachment> mDetuneAttachment;
@@ -153,6 +155,8 @@ private:
     std::unique_ptr<SliderAttachment> mVelToLowpassAttachment;
     std::unique_ptr<SliderAttachment> mVelToAttackAttachment;
     std::unique_ptr<SliderAttachment> mDistortionAttachment;
+    std::unique_ptr<SliderAttachment> mReverbAttachment;
+    std::unique_ptr<SliderAttachment> mReverbDecayAttachment;
 
     juce::Label labelGain{ {}, "Gain" };
     juce::Label labelDetune{ {}, "Detune" };
@@ -164,6 +168,8 @@ private:
     juce::Label labelVelToLP{ {}, "Vel>LP" };
     juce::Label labelVelToAtk{ {}, "Vel>Atk" };
     juce::Label labelDistortion{ {}, "Dist" };
+    juce::Label labelReverb{ {}, "Reverb" };
+    juce::Label labelReverbDecay{ {}, "Decay" };
 
     DrumSamplerAudioProcessor& audioProcessor;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(controlSlidersBlock)

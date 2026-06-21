@@ -103,6 +103,7 @@ public:
     std::atomic<bool>& isNotePlayed() { return mIsNotePlayed; }
     std::atomic<int>& getSampleCount() { return mSampleCount; }
     bool checkAndClearPadSwitchedFromMidi() { return mPadSwitchedFromMidi.exchange(false); }
+    int  checkAndClearMidiTriggeredPadIndex()  { return mMidiTriggeredPadIndex.exchange(-1); }
     float getPosInSec() { return currentPositionInSeconds; }
     int getCurrentPadIndex() const { return uiPadIndex; }
     void setUIPadIndex(int i) { uiPadIndex = i; }
@@ -143,6 +144,7 @@ private:
     std::atomic<bool> mIsNotePlayed{ false };
     std::atomic<int> mSampleCount{ 0 };
     std::atomic<bool> mPadSwitchedFromMidi{ false };
+    std::atomic<int>  mMidiTriggeredPadIndex{ -1 };
     
     std::array<float, NUM_PADS> lastVelToAttack;
     

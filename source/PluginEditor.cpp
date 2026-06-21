@@ -194,6 +194,8 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("HIGHPASS" + suffix, "Highpass");
     CBlock.changeSliderParameter("VEL_TO_LOWPASS" + suffix, "VelToLowpass");
     CBlock.changeSliderParameter("DISTORTION" + suffix, "Distortion");
+    CBlock.changeSliderParameter("REVERB" + suffix, "Reverb");
+    CBlock.changeSliderParameter("REVERB_DECAY" + suffix, "ReverbDecay");
 
     // Apply the new pad's current parameter values to its sound. SliderAttachment
     // creation syncs the slider FROM the parameter (not the reverse), so
@@ -235,8 +237,8 @@ void DrumSamplerAudioProcessorEditor::refreshAllPads()
 
 void DrumSamplerAudioProcessorEditor::timerCallback()
 {
-    // Consume the flag so it doesn't accumulate, but do not switch
-    // the waveform display on MIDI input — only button presses do that.
+    // Consume flags — do not switch the UI on MIDI input; the GUI stays on the selected pad.
+    audioProcessor.checkAndClearMidiTriggeredPadIndex();
     audioProcessor.checkAndClearPadSwitchedFromMidi();
 }
 

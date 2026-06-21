@@ -46,6 +46,8 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     setupLabel(labelVelToLP);
     setupLabel(labelVelToAtk);
     setupLabel(labelDistortion);
+    setupLabel(labelReverb);
+    setupLabel(labelReverbDecay);
 
     addAndMakeVisible(&GainSlider);
     GainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -93,6 +95,14 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&DistortionSlider);
     DistortionSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mDistortionAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "DISTORTION", DistortionSlider);
+
+    addAndMakeVisible(&ReverbSlider);
+    ReverbSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mReverbAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "REVERB", ReverbSlider);
+
+    addAndMakeVisible(&ReverbDecaySlider);
+    ReverbDecaySlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mReverbDecayAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "REVERB_DECAY", ReverbDecaySlider);
 }
 
 void controlSlidersBlock::resized() {
@@ -104,27 +114,29 @@ void controlSlidersBlock::resized() {
     const auto row1Y   = 5;
     const auto row2Y   = row1Y + rowH + 8;
 
-    // Row 1: 5 knobs — Gain, Detune, EQ Lo, EQ Mid, EQ Hi
-    const auto gap1 = (getWidth() - (sWidth * 5)) / 6;
+    // Row 1: 6 knobs — Gain, Detune, EQ Lo, EQ Mid, EQ Hi, Dist
+    const auto gap1 = (getWidth() - (sWidth * 6)) / 7;
     auto placeSlider = [&](sliderController& s, juce::Label& lbl, int x, int y)
     {
         lbl.setBounds(x, y, sWidth, labelH);
         s.setBounds(x, y + labelH, sWidth, sHeight);
     };
 
-    placeSlider(GainSlider,    labelGain,    gap1,                row1Y);
-    placeSlider(DetuneSlider,  labelDetune,  gap1 * 2 + sWidth,   row1Y);
-    placeSlider(EqLowSlider,   labelEqLow,   gap1 * 3 + sWidth*2, row1Y);
-    placeSlider(EqMidSlider,   labelEqMid,   gap1 * 4 + sWidth*3, row1Y);
-    placeSlider(EqHighSlider,  labelEqHigh,  gap1 * 5 + sWidth*4, row1Y);
+    placeSlider(GainSlider,       labelGain,       gap1,                row1Y);
+    placeSlider(DetuneSlider,     labelDetune,     gap1 * 2 + sWidth,   row1Y);
+    placeSlider(EqLowSlider,      labelEqLow,      gap1 * 3 + sWidth*2, row1Y);
+    placeSlider(EqMidSlider,      labelEqMid,      gap1 * 4 + sWidth*3, row1Y);
+    placeSlider(EqHighSlider,     labelEqHigh,     gap1 * 5 + sWidth*4, row1Y);
+    placeSlider(DistortionSlider, labelDistortion, gap1 * 6 + sWidth*5, row1Y);
 
-    // Row 2: 5 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Dist
-    const auto gap2 = (getWidth() - (sWidth * 5)) / 6;
-    placeSlider(LowpassSlider,      labelLowpass,    gap2,                row2Y);
-    placeSlider(HighpassSlider,     labelHighpass,   gap2 * 2 + sWidth,   row2Y);
-    placeSlider(VelToLowpassSlider, labelVelToLP,    gap2 * 3 + sWidth*2, row2Y);
-    placeSlider(VelToAttackSlider,  labelVelToAtk,   gap2 * 4 + sWidth*3, row2Y);
-    placeSlider(DistortionSlider,   labelDistortion, gap2 * 5 + sWidth*4, row2Y);
+    // Row 2: 6 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Reverb, Decay
+    const auto gap2 = (getWidth() - (sWidth * 6)) / 7;
+    placeSlider(LowpassSlider,      labelLowpass,      gap2,                row2Y);
+    placeSlider(HighpassSlider,     labelHighpass,     gap2 * 2 + sWidth,   row2Y);
+    placeSlider(VelToLowpassSlider, labelVelToLP,      gap2 * 3 + sWidth*2, row2Y);
+    placeSlider(VelToAttackSlider,  labelVelToAtk,     gap2 * 4 + sWidth*3, row2Y);
+    placeSlider(ReverbSlider,       labelReverb,       gap2 * 5 + sWidth*4, row2Y);
+    placeSlider(ReverbDecaySlider,  labelReverbDecay,  gap2 * 6 + sWidth*5, row2Y);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& /*g*/)
@@ -171,5 +183,13 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "Distortion") {
         mDistortionAttachment.reset();
         mDistortionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, DistortionSlider);
+    }
+    if (sliderName == "Reverb") {
+        mReverbAttachment.reset();
+        mReverbAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, ReverbSlider);
+    }
+    if (sliderName == "ReverbDecay") {
+        mReverbDecayAttachment.reset();
+        mReverbDecayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, ReverbDecaySlider);
     }
 }

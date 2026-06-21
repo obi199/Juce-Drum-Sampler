@@ -186,6 +186,10 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             {
                 samplePlayed(noteNumber);
                 mPadSwitchedFromMidi = true;
+                mMidiTriggeredPadIndex = padIdx;
+                // Ensure the triggered pad's parameters (EQ, distortion, etc.) are applied
+                mShouldUpdate = true;
+                mUpdateCount  = 2;
             }
         }
     }
@@ -462,6 +466,8 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("EQ_MID",       0.0f);
     setDefault("EQ_HIGH",      0.0f);
     setDefault("DISTORTION",   0.0f);
+    setDefault("REVERB",       0.0f);
+    setDefault("REVERB_DECAY", 0.5f);
 }
 
 void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
@@ -692,6 +698,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("DISTORTION" + suffix, 1), "Distortion",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("REVERB" + suffix, 1), "Reverb",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("REVERB_DECAY" + suffix, 1), "Reverb Decay",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -847,6 +859,16 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("DISTORTION" + suffix))
                     distortion = v->load();
                 sound->setDistortionDrive(distortion);
+
+                float reverbMix = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("REVERB" + suffix))
+                    reverbMix = v->load();
+                sound->setReverbMix(reverbMix);
+
+                float reverbDecay = 0.5f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("REVERB_DECAY" + suffix))
+                    reverbDecay = v->load();
+                sound->setReverbDecay(reverbDecay);
 
                 float startOff = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))
