@@ -57,6 +57,9 @@ public:
     void setEqHighDb(float db) { eqHighDb = juce::jlimit(-12.0f, 12.0f, db); }
     float getEqHighDb() const  { return eqHighDb; }
 
+    void setDistortionDrive(float d) { distortionDrive = juce::jlimit(0.0f, 1.0f, d); }
+    float getDistortionDrive() const { return distortionDrive; }
+
     void setGainLinear(float g) { gainLinear = juce::jlimit(0.0f, 4.0f, g); }
     float getGainLinear() const { return gainLinear; }
 
@@ -77,6 +80,7 @@ private:
     float eqLowDb  = 0.0f;
     float eqMidDb  = 0.0f;
     float eqHighDb = 0.0f;
+    float distortionDrive = 0.0f;
     float gainLinear = 1.0f;
     int outputBusIndex = 0;
     double sourceSampleRate = 44100.0;
@@ -274,6 +278,15 @@ public:
                     sample = eqLowFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = eqMidFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = eqHighFilters[filterIdx].processSingleSampleRaw(sample);
+
+                    // Soft-clip distortion using tanh: drive 0=bypass, 1=full saturation
+                    float drive = playingSound->getDistortionDrive();
+                    if (drive > 0.0f)
+                    {
+                        float gain = 1.0f + drive * 19.0f;  // maps 0-1 to 1x-20x pre-gain
+                        sample = std::tanh(sample * gain) / std::tanh(gain);
+                    }
+
                     outputBuffer.addSample(targetCh, startSample + i, sample * envelopeValue);
                 }
                 currentSamplePos += pitchRatio;

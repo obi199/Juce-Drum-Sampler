@@ -45,6 +45,7 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     setupLabel(labelHighpass);
     setupLabel(labelVelToLP);
     setupLabel(labelVelToAtk);
+    setupLabel(labelDistortion);
 
     addAndMakeVisible(&GainSlider);
     GainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -54,18 +55,22 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&DetuneSlider);
     DetuneSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mDetuneAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "DETUNE", DetuneSlider);
+    DetuneSlider.setTextValueSuffix(" st");
 
     addAndMakeVisible(&EqLowSlider);
     EqLowSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mEqLowAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "EQ_LOW", EqLowSlider);
+    EqLowSlider.setTextValueSuffix(" dB");
 
     addAndMakeVisible(&EqMidSlider);
     EqMidSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mEqMidAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "EQ_MID", EqMidSlider);
+    EqMidSlider.setTextValueSuffix(" dB");
 
     addAndMakeVisible(&EqHighSlider);
     EqHighSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mEqHighAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "EQ_HIGH", EqHighSlider);
+    EqHighSlider.setTextValueSuffix(" dB");
 
     addAndMakeVisible(&LowpassSlider);
     LowpassSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -84,6 +89,10 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&VelToAttackSlider);
     VelToAttackSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mVelToAttackAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "VEL_TO_ATTACK", VelToAttackSlider);
+
+    addAndMakeVisible(&DistortionSlider);
+    DistortionSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mDistortionAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "DISTORTION", DistortionSlider);
 }
 
 void controlSlidersBlock::resized() {
@@ -109,12 +118,13 @@ void controlSlidersBlock::resized() {
     placeSlider(EqMidSlider,   labelEqMid,   gap1 * 4 + sWidth*3, row1Y);
     placeSlider(EqHighSlider,  labelEqHigh,  gap1 * 5 + sWidth*4, row1Y);
 
-    // Row 2: 4 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk
-    const auto gap2 = (getWidth() - (sWidth * 4)) / 5;
-    placeSlider(LowpassSlider,      labelLowpass,  gap2,                row2Y);
-    placeSlider(HighpassSlider,     labelHighpass, gap2 * 2 + sWidth,   row2Y);
-    placeSlider(VelToLowpassSlider, labelVelToLP,  gap2 * 3 + sWidth*2, row2Y);
-    placeSlider(VelToAttackSlider,  labelVelToAtk, gap2 * 4 + sWidth*3, row2Y);
+    // Row 2: 5 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Dist
+    const auto gap2 = (getWidth() - (sWidth * 5)) / 6;
+    placeSlider(LowpassSlider,      labelLowpass,    gap2,                row2Y);
+    placeSlider(HighpassSlider,     labelHighpass,   gap2 * 2 + sWidth,   row2Y);
+    placeSlider(VelToLowpassSlider, labelVelToLP,    gap2 * 3 + sWidth*2, row2Y);
+    placeSlider(VelToAttackSlider,  labelVelToAtk,   gap2 * 4 + sWidth*3, row2Y);
+    placeSlider(DistortionSlider,   labelDistortion, gap2 * 5 + sWidth*4, row2Y);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& /*g*/)
@@ -157,5 +167,9 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "VelToAttack") {
         mVelToAttackAttachment.reset();
         mVelToAttackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, VelToAttackSlider);
+    }
+    if (sliderName == "Distortion") {
+        mDistortionAttachment.reset();
+        mDistortionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, DistortionSlider);
     }
 }

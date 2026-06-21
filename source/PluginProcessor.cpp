@@ -461,6 +461,7 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("EQ_LOW",       0.0f);
     setDefault("EQ_MID",       0.0f);
     setDefault("EQ_HIGH",      0.0f);
+    setDefault("DISTORTION",   0.0f);
 }
 
 void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
@@ -688,6 +689,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("EQ_HIGH" + suffix, 1), "EQ High",
             juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f, "dB"));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("DISTORTION" + suffix, 1), "Distortion",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -838,6 +842,11 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("EQ_HIGH" + suffix))
                     eqHigh = v->load();
                 sound->setEqHighDb(eqHigh);
+
+                float distortion = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("DISTORTION" + suffix))
+                    distortion = v->load();
+                sound->setDistortionDrive(distortion);
 
                 float startOff = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))

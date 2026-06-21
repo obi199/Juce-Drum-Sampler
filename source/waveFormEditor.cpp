@@ -106,14 +106,26 @@ void positionLine::paint(juce::Graphics& g)
     auto audioLength = (float)Processor.thumbnail.getTotalLength();
     if (audioLength > 0.0) {
         auto audioPosition = (float)Processor.getPosInSec();
-        
-        // Ensure the line is drawn relative to the whole thumbnail
-        auto drawPosition = (audioPosition / audioLength) * (float)getWidth();
-        
-        // If we want it relative to the start line (optional, but usually preferred):
-        // However, getPosInSec() now returns the absolute position in the sample 
-        // because we get it from CustomSamplerVoice::currentSamplePos.
-        
+
+        // Get start/end offsets for the current pad so the timeline
+        // starts and ends at the same positions as the start/end lines
+        int padIndex = Processor.getCurrentPadIndex();
+        auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+        float startOffset = 0.0f;
+        float endOffset   = 1.0f;
+        if (auto* v = Processor.getAPVTS().getRawParameterValue("START_OFFSET" + suffix))
+            startOffset = v->load();
+        if (auto* v = Processor.getAPVTS().getRawParameterValue("END_OFFSET" + suffix))
+            endOffset = v->load();
+
+        float startX = startOffset * (float)getWidth();
+        float endX   = endOffset   * (float)getWidth();
+
+        // Map playback position into the [startX, endX] pixel range
+        float posRatio    = audioPosition / audioLength;
+        float drawPosition = startX + (posRatio - startOffset) / (endOffset - startOffset) * (endX - startX);
+        drawPosition = juce::jlimit(startX, endX, drawPosition);
+
         g.setColour(juce::Colours::red);
         g.drawLine(drawPosition, 0.0f, drawPosition, (float)getHeight(), 1.0f);
     }
@@ -162,6 +174,9 @@ void startLine::paint(juce::Graphics& g)
 {
     g.setColour(juce::Colours::green);
     g.drawLine(lengthLineX, 0.0f, lengthLineX, (float)getHeight(), 5.0f);
+    // Small square handle at the top for easier grabbing
+    const float sqSize = 10.0f;
+    g.fillRect(lengthLineX - sqSize * 0.5f, 0.0f, sqSize, sqSize);
 }
 
 bool startLine::hitTest(int x, int /*y*/)
@@ -265,6 +280,9 @@ void endLine::paint(juce::Graphics& g)
 {
     g.setColour(juce::Colours::green);
     g.drawLine(lengthLineX, 0.0f, lengthLineX, (float)getHeight(), 5.0f);
+    // Small square handle at the top for easier grabbing
+    const float sqSize = 10.0f;
+    g.fillRect(lengthLineX - sqSize * 0.5f, 0.0f, sqSize, sqSize);
 }
 
 bool endLine::hitTest(int x, int /*y*/)
