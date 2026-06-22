@@ -26,6 +26,15 @@ DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p, int m, juce::
         if (file.existsAsFile())
             filename = file.getFileName();
     }
+
+    addAndMakeVisible(noteNameLabel);
+    noteNameLabel.setText(juce::MidiMessage::getMidiNoteName(midiNote, true, true, 3).toLowerCase(), juce::dontSendNotification);
+    noteNameLabel.setFont(juce::FontOptions(15.0f));
+    noteNameLabel.setJustificationType(juce::Justification::centred);
+    noteNameLabel.setColour(juce::Label::textColourId, juce::Colours::black);
+    noteNameLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+    noteNameLabel.setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
+    noteNameLabel.setInterceptsMouseClicks(false, false);
 }
 
 DragAndDropButton::~DragAndDropButton() {}
@@ -112,6 +121,12 @@ void DragAndDropButton::itemDragExit(const SourceDetails&)
     repaint();
 }
 
+void DragAndDropButton::resized()
+{
+    juce::TextButton::resized();
+    noteNameLabel.setBounds(getLocalBounds().reduced(2));
+}
+
 void DragAndDropButton::paint(juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat().reduced(2.0f);
@@ -125,7 +140,7 @@ void DragAndDropButton::paint(juce::Graphics& g)
 
     // Main pad body — highlight when a pad is being dragged over this one
     juce::Colour padColour = dragHighlight ? juce::Colour(0xff555500)
-                           : hasSound      ? juce::Colour(0xff3a3a3a)
+                           : hasSound      ? juce::Colours::grey
                                            : juce::Colours::lightgrey;
     g.setColour(padColour);
     g.fillRoundedRectangle(bounds, cornerSize);
@@ -150,15 +165,13 @@ void DragAndDropButton::paint(juce::Graphics& g)
     }
 
     // Text
-    g.setColour(juce::Colours::white.withAlpha(0.85f));
-    g.setFont(juce::FontOptions(12.0f));
+    g.setColour(juce::Colours::black.withAlpha(0.7f));
+    g.setFont(juce::FontOptions(10.0f));
 
     if (hasSound)
-        g.drawText(filename, getLocalBounds().reduced(6), juce::Justification::centred, true);
-    else
     {
-        g.setColour(juce::Colours::darkgrey);
-        g.drawText("DROP\nSAMPLE", getLocalBounds().reduced(6), juce::Justification::centred, true);
+        auto textBounds = getLocalBounds().reduced(4);
+        g.drawText(filename, textBounds.removeFromTop(12), juce::Justification::centred, true);
     }
 }
 

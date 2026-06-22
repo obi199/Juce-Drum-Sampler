@@ -25,6 +25,7 @@ public:
     DragAndDropButton(DrumSamplerAudioProcessor&, int m, juce::String name); //insert midi notes for 2nd pad
     ~DragAndDropButton() override;
     void paint(juce::Graphics&) override;
+    void resized() override;
 
     // File drag-and-drop (from OS)
     bool isInterestedInFileDrag(const juce::StringArray&) override;
@@ -54,6 +55,7 @@ private:
     bool dragHighlight = false;
 
     std::unique_ptr<juce::FileChooser> chooser;
+    juce::Label noteNameLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DragAndDropButton)
 };
