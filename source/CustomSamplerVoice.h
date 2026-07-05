@@ -111,12 +111,10 @@ public:
         noteVelocity = velocity;
         // Apply a velocity curve: velocity^0.5 gives a more natural, louder response
         // at high velocities compared to linear mapping
-        currentGain = std::pow(velocity, 0.5f);
+        velocityGain = std::pow(velocity, 0.5f);
 
         if (auto* sound = dynamic_cast<CustomSamplerSound*>(s))
         {
-            // Multiply pad gain so each voice is independent — no global buffer gain needed
-            currentGain *= sound->getGainLinear();
             // Compute pitch ratio so files at any sample rate play at correct speed
             double hostRate = getSampleRate();
             double srcRate = sound->getSourceSampleRate();
@@ -295,7 +293,9 @@ public:
                     fadeTriggered = true;
                 }
 
-                float envelopeValue = adsr.getNextSample() * currentGain;
+                // Apply velocity-based gain and real-time pad gain
+                float liveGain = velocityGain * playingSound->getGainLinear();
+                float envelopeValue = adsr.getNextSample() * liveGain;
 
                 if (!adsr.isActive())
                 {
@@ -409,7 +409,7 @@ private:
     float lastReverbDecay = 0.5f;
     int lastBusOffset = 0;
     double pitchRatio = 1.0;
-    float currentGain = 1.0f;
+    float velocityGain = 1.0f;
     float noteVelocity = 1.0f;
     juce::ADSR adsr;
     juce::IIRFilter lowpassFilters[2];

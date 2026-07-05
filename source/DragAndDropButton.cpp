@@ -26,15 +26,6 @@ DragAndDropButton::DragAndDropButton(DrumSamplerAudioProcessor& p, int m, juce::
         if (file.existsAsFile())
             filename = file.getFileName();
     }
-
-    addAndMakeVisible(noteNameLabel);
-    noteNameLabel.setText(juce::MidiMessage::getMidiNoteName(midiNote, true, true, 3).toLowerCase(), juce::dontSendNotification);
-    noteNameLabel.setFont(juce::FontOptions(15.0f));
-    noteNameLabel.setJustificationType(juce::Justification::centred);
-    noteNameLabel.setColour(juce::Label::textColourId, juce::Colours::black);
-    noteNameLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    noteNameLabel.setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
-    noteNameLabel.setInterceptsMouseClicks(false, false);
 }
 
 DragAndDropButton::~DragAndDropButton() {}
@@ -124,55 +115,103 @@ void DragAndDropButton::itemDragExit(const SourceDetails&)
 void DragAndDropButton::resized()
 {
     juce::TextButton::resized();
-    noteNameLabel.setBounds(getLocalBounds().reduced(2));
 }
 
 void DragAndDropButton::paint(juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().toFloat().reduced(2.0f);
-    float cornerSize = 6.0f;
+    auto fullBounds = getLocalBounds().toFloat();
+    auto bounds = fullBounds.reduced(3.0f); // Leave room for shadow
+    float cornerSize = 4.0f;
 
     bool hasSound = !filename.isEmpty();
+    bool isPressed = isMouseButtonDown();
+    bool isOver = isMouseOver();
 
-    // Outer shadow
-    g.setColour(juce::Colours::black.withAlpha(0.6f));
-    g.fillRoundedRectangle(bounds.translated(1.5f, 1.5f), cornerSize);
+    // 1. Draw 3D Shadow
+    if (!isPressed)
+    {
+        juce::Path shadowPath;
+        shadowPath.addRoundedRectangle(bounds.translated(2.0f, 2.0f), cornerSize);
+        juce::DropShadow shadow(juce::Colours::black.withAlpha(0.6f), 5, { 2, 2 });
+        shadow.drawForPath(g, shadowPath);
+    }
+    else
+    {
+        // Slightly shift the pad content down-right to simulate being pressed
+        bounds = bounds.translated(1.0f, 1.0f);
+        
+        juce::Path shadowPath;
+        shadowPath.addRoundedRectangle(bounds.translated(0.5f, 0.5f), cornerSize);
+        juce::DropShadow shadow(juce::Colours::black.withAlpha(0.4f), 2, { 1, 1 });
+        shadow.drawForPath(g, shadowPath);
+    }
 
-    // Main pad body — highlight when a pad is being dragged over this one
-    juce::Colour padColour = dragHighlight ? juce::Colour(0xff555500)
+    // 2. Pad Body with Gradient (MPC style)
+    juce::Colour baseColour = dragHighlight ? juce::Colour(0xff777700)
                            : hasSound      ? juce::Colours::grey
                                            : juce::Colours::lightgrey;
-    g.setColour(padColour);
+                                           
+    if (isOver && !dragHighlight)
+        baseColour = baseColour.brighter(0.05f);
+
+    juce::Colour topColor = baseColour.brighter(0.15f);
+    juce::Colour bottomColor = baseColour.darker(0.15f);
+    
+    if (isPressed)
+        std::swap(topColor, bottomColor); // Invert gradient when pressed
+
+    juce::ColourGradient grad(topColor, bounds.getX(), bounds.getY(),
+                              bottomColor, bounds.getX(), bounds.getBottom(), false);
+    g.setGradientFill(grad);
     g.fillRoundedRectangle(bounds, cornerSize);
 
-    // Top-left highlight bevel
-    juce::ColourGradient highlight(juce::Colours::white.withAlpha(0.15f), bounds.getX(), bounds.getY(),
-                                   juce::Colours::transparentBlack, bounds.getX(), bounds.getBottom(), false);
-    g.setGradientFill(highlight);
-    g.fillRoundedRectangle(bounds, cornerSize);
+    // 3. Bevel and Edges
+    // Inner highlight (top-left)
+    g.setColour(juce::Colours::white.withAlpha(isPressed ? 0.1f : 0.3f));
+    g.drawRoundedRectangle(bounds.reduced(0.5f), cornerSize, 1.0f);
+    
+    // Inner shadow (bottom-right)
+    g.setColour(juce::Colours::black.withAlpha(isPressed ? 0.3f : 0.15f));
+    g.drawRoundedRectangle(bounds.reduced(1.0f), cornerSize, 0.5f);
 
-    // Subtle inner border — bright yellow when dragging over
-    g.setColour(dragHighlight ? juce::Colours::yellow.withAlpha(0.8f)
-                              : juce::Colours::white.withAlpha(0.08f));
-    g.drawRoundedRectangle(bounds.reduced(1.0f), cornerSize, dragHighlight ? 2.0f : 1.0f);
-
-    // Active indicator strip at the bottom when a sample is loaded
+    // 4. Active indicator strip (Glowy)
     if (hasSound)
     {
-        auto strip = bounds.removeFromBottom(4.0f).reduced(10.0f, 0.0f);
-        g.setColour(juce::Colour(0xffff4444));
-        g.fillRoundedRectangle(strip, 2.0f);
+        auto stripBounds = bounds.withHeight(4.0f).translated(0, bounds.getHeight() - 10.0f).reduced(bounds.getWidth() * 0.25f, 0);
+        
+        juce::Colour indicatorColor = juce::Colour(0xffff4444);
+        if (isOver) indicatorColor = indicatorColor.brighter(0.3f);
+        
+        // Glow effect
+        for (int i = 1; i <= 3; ++i)
+        {
+            g.setColour(indicatorColor.withAlpha(0.2f / i));
+            g.fillRoundedRectangle(stripBounds.expanded(i * 1.0f), 2.0f);
+        }
+        
+        g.setColour(indicatorColor);
+        g.fillRoundedRectangle(stripBounds, 2.0f);
     }
 
-    // Text
-    g.setColour(juce::Colours::black.withAlpha(0.7f));
-    g.setFont(juce::FontOptions(10.0f));
-
+    // 5. Text - Filename
     if (hasSound)
     {
-        auto textBounds = getLocalBounds().reduced(4);
-        g.drawText(filename, textBounds.removeFromTop(12), juce::Justification::centred, true);
+        g.setColour(juce::Colours::black.withAlpha(0.8f));
+        g.setFont(juce::FontOptions(10.0f).withStyle("Bold"));
+        
+        // Increased height and used drawFittedText to prevent the name from being "cut up"
+        auto textBounds = bounds.reduced(5.0f).withHeight(35.0f).translated(0, 2.0f);
+        g.drawFittedText(filename, textBounds.toNearestInt(), juce::Justification::centredTop, 2);
     }
+    
+    // 6. Text - Note Name (Moved here from the Label for 3D alignment)
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.setFont(juce::FontOptions(13.0f));
+    auto noteName = juce::MidiMessage::getMidiNoteName(midiNote, true, true, 3).toLowerCase();
+    
+    // Position note name slightly lower to avoid overlap with multi-line filenames
+    auto noteBounds = bounds.withTrimmedTop(hasSound ? 20.0f : 0.0f);
+    g.drawText(noteName, noteBounds, juce::Justification::centred, false);
 }
 
 void DragAndDropButton::mouseUp(const juce::MouseEvent& e)

@@ -55,7 +55,6 @@ private:
     bool dragHighlight = false;
 
     std::unique_ptr<juce::FileChooser> chooser;
-    juce::Label noteNameLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DragAndDropButton)
 };
