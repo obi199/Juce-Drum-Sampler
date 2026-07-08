@@ -468,6 +468,7 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("DISTORTION",   0.0f);
     setDefault("REVERB",       0.0f);
     setDefault("REVERB_DECAY", 0.5f);
+    setDefault("COMPRESSION",  0.0f);
 }
 
 void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
@@ -704,6 +705,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("REVERB_DECAY" + suffix, 1), "Reverb Decay",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.5f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("COMPRESSION" + suffix, 1), "Compression",
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -869,6 +873,11 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("REVERB_DECAY" + suffix))
                     reverbDecay = v->load();
                 sound->setReverbDecay(reverbDecay);
+
+                float compression = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("COMPRESSION" + suffix))
+                    compression = v->load();
+                sound->setCompression(compression);
 
                 float startOff = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))

@@ -86,12 +86,12 @@ DrumSamplerAudioProcessorEditor::DrumSamplerAudioProcessorEditor (DrumSamplerAud
     }
    
     // Compute editor height to closely match the drum grid height
-    const int initialWidth = 900;
+    const int initialWidth = 1100;
     const int leftMarginCalc = 10;
     const int topMarginCalc = 10;
     const int colsCalc = 4;
     const int padGapCalc = 6;
-    const int leftWidthCalc = initialWidth / 2;
+    const int leftWidthCalc = 500;
     const int padSizeCalc = (leftWidthCalc - leftMarginCalc - (padGapCalc * colsCalc)) / colsCalc;
     const int rowsCalc = 4;
     const int gridHeight = topMarginCalc + rowsCalc * padSizeCalc + (rowsCalc - 1) * padGapCalc + topMarginCalc; // add bottom margin equal to top
@@ -119,7 +119,7 @@ void DrumSamplerAudioProcessorEditor::resized()
     int cols = 4;
     int padGap = 6;
 
-    int leftWidth = getWidth() / 2;
+    int leftWidth = 500;
     int padSize = (leftWidth - leftMargin - (padGap * cols)) / cols;
 
     int rows = 4;
@@ -194,6 +194,7 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("HIGHPASS" + suffix, "Highpass");
     CBlock.changeSliderParameter("VEL_TO_LOWPASS" + suffix, "VelToLowpass");
     CBlock.changeSliderParameter("DISTORTION" + suffix, "Distortion");
+    CBlock.changeSliderParameter("COMPRESSION" + suffix, "Compression");
     CBlock.changeSliderParameter("REVERB" + suffix, "Reverb");
     CBlock.changeSliderParameter("REVERB_DECAY" + suffix, "ReverbDecay");
 

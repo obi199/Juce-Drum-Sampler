@@ -42,74 +42,83 @@ private:
             auto outline = slider.findColour(juce::Slider::rotarySliderOutlineColourId);
             auto fill = slider.findColour(juce::Slider::rotarySliderFillColourId);
 
-            auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(6);
+            auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(4);
 
             auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
             auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-            auto lineW = juce::jmin(4.0f, radius * 0.2f);
+            auto lineW = juce::jmin(8.0f, radius * 0.2f);
             auto arcRadius = radius - lineW * 0.5f;
 
-            // Draw background arc
+            // --- Background Track ---
             juce::Path backgroundArc;
-            backgroundArc.addCentredArc(bounds.getCentreX(),
-                bounds.getCentreY(),
-                arcRadius,
-                arcRadius,
-                0.0f,
-                rotaryStartAngle,
-                rotaryEndAngle,
-                true);
-
-            g.setColour(outline.withAlpha(0.3f));
+            backgroundArc.addCentredArc(bounds.getCentreX(), bounds.getCentreY(), arcRadius, arcRadius, 0.0f, rotaryStartAngle, rotaryEndAngle, true);
+            g.setColour(outline.withAlpha(0.2f));
             g.strokePath(backgroundArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
+            // --- Value Track ---
             if (slider.isEnabled())
             {
                 juce::Path valueArc;
-                valueArc.addCentredArc(bounds.getCentreX(),
-                    bounds.getCentreY(),
-                    arcRadius,
-                    arcRadius,
-                    0.0f,
-                    rotaryStartAngle,
-                    toAngle,
-                    true);
-
+                valueArc.addCentredArc(bounds.getCentreX(), bounds.getCentreY(), arcRadius, arcRadius, 0.0f, rotaryStartAngle, toAngle, true);
                 g.setColour(fill);
                 g.strokePath(valueArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
             }
 
-            // --- Knob Body ---
-            auto knobRadius = radius - lineW * 2.0f;
+            // --- Knob 3D Body ---
+            auto knobRadius = radius - lineW * 1.5f;
             auto knobBounds = juce::Rectangle<float>(bounds.getCentreX() - knobRadius, bounds.getCentreY() - knobRadius, knobRadius * 2.0f, knobRadius * 2.0f);
 
-            // Shadow
-            g.setColour(juce::Colours::black.withAlpha(0.5f));
-            g.fillEllipse(knobBounds.translated(0, 2));
+            // 1. Heavy Outer Drop Shadow
+            g.setColour(juce::Colours::black.withAlpha(0.6f));
+            g.fillEllipse(knobBounds.translated(0.0f, 3.5f));
 
-            // Main body
-            juce::ColourGradient knobGrad(juce::Colours::lightgrey, knobBounds.getTopLeft(),
-                juce::Colours::darkgrey.darker(0.8f), knobBounds.getBottomRight(), false);
-            g.setGradientFill(knobGrad);
+            // 2. Main Outer Bevel
+            juce::ColourGradient outerBevelGrad(juce::Colours::lightgrey.brighter(0.2f), knobBounds.getTopLeft(),
+                                              juce::Colours::lightgrey.darker(0.4f), knobBounds.getBottomRight(), false);
+            g.setGradientFill(outerBevelGrad);
             g.fillEllipse(knobBounds);
 
-            // Top shine
-            g.setColour(juce::Colours::white.withAlpha(0.1f));
-            g.fillEllipse(knobBounds.reduced(2).translated(0, -1));
+            // 3. Inner Face (Slightly smaller)
+            auto faceBounds = knobBounds.reduced(2.5f);
+            juce::ColourGradient faceGrad(juce::Colours::lightgrey.brighter(0.15f), faceBounds.getTopLeft(),
+                                        juce::Colours::lightgrey.darker(0.15f), faceBounds.getBottomRight(), false);
+            g.setGradientFill(faceGrad);
+            g.fillEllipse(faceBounds);
 
-            // Outline
-            g.setColour(juce::Colours::black.withAlpha(0.8f));
+            // 4. Subtle Radial Shine on Top
+            juce::ColourGradient shineGrad(juce::Colours::white.withAlpha(0.15f), faceBounds.getCentreX(), faceBounds.getY(),
+                                         juce::Colours::transparentWhite, faceBounds.getCentreX(), faceBounds.getCentreY(), true);
+            g.setGradientFill(shineGrad);
+            g.fillEllipse(faceBounds);
+
+            // 5. Rim highlight
+            g.setColour(juce::Colours::white.withAlpha(0.3f));
+            g.drawEllipse(knobBounds.reduced(0.5f), 0.5f);
+            g.setColour(juce::Colours::black.withAlpha(0.5f));
             g.drawEllipse(knobBounds, 1.0f);
 
-            // --- Pointer ---
+            // --- 3D Pointer ---
+            auto pointerLength = knobRadius * 0.7f;
+            auto pointerThickness = 3.5f;
+            
             juce::Path p;
-            auto pointerLength = knobRadius * 0.45f;
-            auto pointerThickness = 3.0f;
             p.addRoundedRectangle(-pointerThickness * 0.5f, -knobRadius + 2.0f, pointerThickness, pointerLength, 1.0f);
-            p.applyTransform(juce::AffineTransform::rotation(toAngle).translated(bounds.getCentreX(), bounds.getCentreY()));
-
+            
+            auto transform = juce::AffineTransform::rotation(toAngle).translated(bounds.getCentreX(), bounds.getCentreY());
+            
+            // Pointer Shadow
+            g.setColour(juce::Colours::black.withAlpha(0.4f));
+            g.fillPath(p, transform.translated(1.0f, 1.0f));
+            
+            // Pointer Body
+            g.setColour(juce::Colours::white.darker(0.1f));
+            g.fillPath(p, transform);
+            
+            // Pointer Top Highlight
             g.setColour(juce::Colours::white);
-            g.fillPath(p);
+            g.drawLine(bounds.getCentreX(), bounds.getCentreY(), 
+                       bounds.getCentreX() + std::sin(toAngle) * (knobRadius - 2.0f), 
+                       bounds.getCentreY() - std::cos(toAngle) * (knobRadius - 2.0f), 0.5f);
         }
     };
 
@@ -144,6 +153,7 @@ private:
     sliderController DistortionSlider{ "Dist" };
     sliderController ReverbSlider{ "Reverb" };
     sliderController ReverbDecaySlider{ "Decay" };
+    sliderController CompressionSlider{ "Comp" };
 
     std::unique_ptr<SliderAttachment> mGainAttachment;
     std::unique_ptr<SliderAttachment> mDetuneAttachment;
@@ -157,6 +167,7 @@ private:
     std::unique_ptr<SliderAttachment> mDistortionAttachment;
     std::unique_ptr<SliderAttachment> mReverbAttachment;
     std::unique_ptr<SliderAttachment> mReverbDecayAttachment;
+    std::unique_ptr<SliderAttachment> mCompressionAttachment;
 
     juce::Label labelGain{ {}, "Gain" };
     juce::Label labelDetune{ {}, "Detune" };
@@ -170,6 +181,7 @@ private:
     juce::Label labelDistortion{ {}, "Dist" };
     juce::Label labelReverb{ {}, "Reverb" };
     juce::Label labelReverbDecay{ {}, "Decay" };
+    juce::Label labelCompression{ {}, "Comp" };
 
     DrumSamplerAudioProcessor& audioProcessor;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(controlSlidersBlock)

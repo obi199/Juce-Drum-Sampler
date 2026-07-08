@@ -66,6 +66,9 @@ public:
     void setReverbDecay(float d) { reverbDecay = juce::jlimit(0.0f, 1.0f, d); }
     float getReverbDecay() const { return reverbDecay; }
 
+    void setCompression(float c) { compression = juce::jlimit(0.0f, 1.0f, c); }
+    float getCompression() const { return compression; }
+
     void setGainLinear(float g) { gainLinear = juce::jlimit(0.0f, 4.0f, g); }
     float getGainLinear() const { return gainLinear; }
 
@@ -89,6 +92,7 @@ private:
     float distortionDrive = 0.0f;
     float reverbMix = 0.0f;
     float reverbDecay = 0.5f;
+    float compression = 0.0f;
     float gainLinear = 1.0f;
     int outputBusIndex = 0;
     double sourceSampleRate = 44100.0;
@@ -178,6 +182,7 @@ public:
 
             adsr.reset();   // ensure envelopeVal starts from 0, not a leftover sustain level
             adsr.noteOn();
+            compEnv = 0.0f;
         }
     }
 
@@ -276,6 +281,23 @@ public:
                 eqHighFilters[ch].setCoefficients(eqHighCoeffs);
             }
 
+            // Pre-calculate compressor parameters
+            float compressionAmount = playingSound->getCompression();
+            float threshold = -30.0f * compressionAmount;
+            float ratio = 4.0f;
+            float knee = 10.0f;
+            float makeupDb = compressionAmount * 12.0f;
+            float alphaAttack  = 1.0f - std::exp(-1.0f / (hostRate * 0.005f)); // 5ms
+            float alphaRelease = 1.0f - std::exp(-1.0f / (hostRate * 0.050f)); // 50ms
+
+            // Pre-calculate distortion and output parameters
+            float drive = playingSound->getDistortionDrive();
+            float driveSq = drive * drive;
+            float dGain = 0.1f + driveSq * 19.9f;
+            float invTanhGain = 1.0f / std::tanh(dGain);
+            float padGain = playingSound->getGainLinear();
+            int busOffset = playingSound->getOutputBusIndex() * 2;
+
             bool sampleFinished = false;
             for (int i = 0; i < numSamples; ++i)
             {
@@ -286,15 +308,13 @@ public:
                     break;
                 }
 
-                // Trigger fade-out (release) when we reach the fade-start position
                 if (!fadeTriggered && pos0 >= fadeSamplePos)
                 {
                     adsr.noteOff();
                     fadeTriggered = true;
                 }
 
-                // Apply velocity-based gain and real-time pad gain
-                float liveGain = velocityGain * playingSound->getGainLinear();
+                float liveGain = velocityGain * padGain;
                 float envelopeValue = adsr.getNextSample() * liveGain;
 
                 if (!adsr.isActive())
@@ -303,37 +323,58 @@ public:
                     break;
                 }
 
-                // Linear interpolation between adjacent samples
                 int pos1 = pos0 + 1;
                 float frac = static_cast<float>(currentSamplePos - static_cast<double>(pos0));
 
-                int busOffset = playingSound->getOutputBusIndex() * 2;
-                
+                // Process both channels
+                float s[2];
                 for (int channel = 0; channel < 2; ++channel)
                 {
-                    int targetCh = busOffset + channel;
-                    if (targetCh >= numChannels) break;
-
                     int srcCh = channel % data->getNumChannels();
-                    float s0 = data->getSample(srcCh, pos0);
-                    float s1 = data->getSample(srcCh, pos1);
-                    float sample = s0 + frac * (s1 - s0);
+                    float sample = data->getSample(srcCh, pos0) + frac * (data->getSample(srcCh, pos1) - data->getSample(srcCh, pos0));
                     int filterIdx = juce::jmin(channel, 1);
                     sample = lowpassFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = highpassFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = eqLowFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = eqMidFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = eqHighFilters[filterIdx].processSingleSampleRaw(sample);
+                    s[channel] = sample;
+                }
 
-                    // Soft-clip distortion using tanh: drive 0=bypass, 1=full saturation
-                    float drive = playingSound->getDistortionDrive();
-                    if (drive > 0.0f)
-                    {
-                        float gain = 1.0f + drive * 19.0f;  // maps 0-1 to 1x-20x pre-gain
-                        sample = std::tanh(sample * gain) / std::tanh(gain);
+                // Compression (Stereo Linked)
+                if (compressionAmount > 0.0f)
+                {
+                    float absSample = std::max(std::abs(s[0]), std::abs(s[1]));
+                    if (absSample > compEnv)
+                        compEnv += alphaAttack * (absSample - compEnv);
+                    else
+                        compEnv += alphaRelease * (absSample - compEnv);
+
+                    float envDb = juce::Decibels::gainToDecibels(compEnv, -100.0f);
+                    float outputDb = envDb;
+                    if (envDb > threshold + (knee / 2.0f)) {
+                        outputDb = threshold + (envDb - threshold) / ratio;
+                    } else if (envDb > threshold - (knee / 2.0f)) {
+                        float diff = envDb - threshold + (knee / 2.0f);
+                        outputDb = envDb + ((1.0f/ratio - 1.0f) * diff * diff) / (2.0f * knee);
                     }
+                    float compGain = juce::Decibels::decibelsToGain(outputDb - envDb + makeupDb);
+                    s[0] *= compGain;
+                    s[1] *= compGain;
+                }
 
-                    outputBuffer.addSample(targetCh, startSample + i, sample * envelopeValue);
+                // Distortion and Output
+                if (drive > 0.0f)
+                {
+                    s[0] = std::tanh(s[0] * dGain) * invTanhGain;
+                    s[1] = std::tanh(s[1] * dGain) * invTanhGain;
+                }
+
+                for (int channel = 0; channel < 2; ++channel)
+                {
+                    int targetCh = busOffset + channel;
+                    if (targetCh < numChannels)
+                        outputBuffer.addSample(targetCh, startSample + i, s[channel] * envelopeValue);
                 }
                 currentSamplePos += pitchRatio;
             }
@@ -411,6 +452,7 @@ private:
     double pitchRatio = 1.0;
     float velocityGain = 1.0f;
     float noteVelocity = 1.0f;
+    float compEnv = 0.0f;
     juce::ADSR adsr;
     juce::IIRFilter lowpassFilters[2];
     juce::IIRFilter highpassFilters[2];

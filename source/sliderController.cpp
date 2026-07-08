@@ -48,6 +48,7 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     setupLabel(labelDistortion);
     setupLabel(labelReverb);
     setupLabel(labelReverbDecay);
+    setupLabel(labelCompression);
 
     addAndMakeVisible(&GainSlider);
     GainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -103,31 +104,36 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&ReverbDecaySlider);
     ReverbDecaySlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mReverbDecayAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "REVERB_DECAY", ReverbDecaySlider);
+
+    addAndMakeVisible(&CompressionSlider);
+    CompressionSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mCompressionAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "COMPRESSION", CompressionSlider);
 }
 
 void controlSlidersBlock::resized() {
 
     const auto labelH  = 16;
-    const auto sWidth  = 75;
-    const auto sHeight = 75;
-    const auto rowH    = labelH + sHeight;  // 91px per row
+    const auto sWidth  = 75; 
+    const auto sHeight = 75; 
+    const auto rowH    = labelH + sHeight; 
     const auto row1Y   = 5;
-    const auto row2Y   = row1Y + rowH + 8;
+    const auto row2Y   = row1Y + rowH + 20;
 
-    // Row 1: 6 knobs — Gain, Detune, EQ Lo, EQ Mid, EQ Hi, Dist
-    const auto gap1 = (getWidth() - (sWidth * 6)) / 7;
+    // Row 1: 7 knobs — Gain, Detune, EQ Lo, EQ Mid, EQ Hi, Comp, Dist
+    const auto gap1 = (getWidth() - (sWidth * 7)) / 8;
     auto placeSlider = [&](sliderController& s, juce::Label& lbl, int x, int y)
     {
         lbl.setBounds(x, y, sWidth, labelH);
         s.setBounds(x, y + labelH, sWidth, sHeight);
     };
 
-    placeSlider(GainSlider,       labelGain,       gap1,                row1Y);
-    placeSlider(DetuneSlider,     labelDetune,     gap1 * 2 + sWidth,   row1Y);
-    placeSlider(EqLowSlider,      labelEqLow,      gap1 * 3 + sWidth*2, row1Y);
-    placeSlider(EqMidSlider,      labelEqMid,      gap1 * 4 + sWidth*3, row1Y);
-    placeSlider(EqHighSlider,     labelEqHigh,     gap1 * 5 + sWidth*4, row1Y);
-    placeSlider(DistortionSlider, labelDistortion, gap1 * 6 + sWidth*5, row1Y);
+    placeSlider(GainSlider,        labelGain,        gap1,                row1Y);
+    placeSlider(DetuneSlider,      labelDetune,      gap1 * 2 + sWidth,   row1Y);
+    placeSlider(EqLowSlider,       labelEqLow,       gap1 * 3 + sWidth*2, row1Y);
+    placeSlider(EqMidSlider,       labelEqMid,       gap1 * 4 + sWidth*3, row1Y);
+    placeSlider(EqHighSlider,      labelEqHigh,      gap1 * 5 + sWidth*4, row1Y);
+    placeSlider(CompressionSlider, labelCompression, gap1 * 6 + sWidth*5, row1Y);
+    placeSlider(DistortionSlider,  labelDistortion,  gap1 * 7 + sWidth*6, row1Y);
 
     // Row 2: 6 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Reverb, Decay
     const auto gap2 = (getWidth() - (sWidth * 6)) / 7;
@@ -191,5 +197,9 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "ReverbDecay") {
         mReverbDecayAttachment.reset();
         mReverbDecayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, ReverbDecaySlider);
+    }
+    if (sliderName == "Compression") {
+        mCompressionAttachment.reset();
+        mCompressionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, CompressionSlider);
     }
 }
