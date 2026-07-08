@@ -72,6 +72,9 @@ public:
     void setGainLinear(float g) { gainLinear = juce::jlimit(0.0f, 4.0f, g); }
     float getGainLinear() const { return gainLinear; }
 
+    void setVolumeLinear(float v) { volumeLinear = juce::jlimit(0.0f, 4.0f, v); }
+    float getVolumeLinear() const { return volumeLinear; }
+
     void setOutputBusIndex(int index) { outputBusIndex = index; }
     int getOutputBusIndex() const { return outputBusIndex; }
 
@@ -94,6 +97,7 @@ private:
     float reverbDecay = 0.5f;
     float compression = 0.0f;
     float gainLinear = 1.0f;
+    float volumeLinear = 1.0f;
     int outputBusIndex = 0;
     double sourceSampleRate = 44100.0;
     juce::ADSR::Parameters adsrParams;
@@ -296,6 +300,7 @@ public:
             float dGain = 0.1f + driveSq * 19.9f;
             float invTanhGain = 1.0f / std::tanh(dGain);
             float padGain = playingSound->getGainLinear();
+            float padVolume = playingSound->getVolumeLinear();
             int busOffset = playingSound->getOutputBusIndex() * 2;
 
             bool sampleFinished = false;
@@ -314,8 +319,8 @@ public:
                     fadeTriggered = true;
                 }
 
-                float liveGain = velocityGain * padGain;
-                float envelopeValue = adsr.getNextSample() * liveGain;
+                float adsrVal = adsr.getNextSample();
+                float envelopeValue = adsrVal * padVolume;
 
                 if (!adsr.isActive())
                 {
@@ -328,6 +333,7 @@ public:
 
                 // Process both channels
                 float s[2];
+                float inputGain = velocityGain * padGain;
                 for (int channel = 0; channel < 2; ++channel)
                 {
                     int srcCh = channel % data->getNumChannels();
@@ -338,7 +344,7 @@ public:
                     sample = eqLowFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = eqMidFilters[filterIdx].processSingleSampleRaw(sample);
                     sample = eqHighFilters[filterIdx].processSingleSampleRaw(sample);
-                    s[channel] = sample;
+                    s[channel] = sample * inputGain;
                 }
 
                 // Compression (Stereo Linked)

@@ -195,6 +195,7 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("VEL_TO_LOWPASS" + suffix, "VelToLowpass");
     CBlock.changeSliderParameter("DISTORTION" + suffix, "Distortion");
     CBlock.changeSliderParameter("COMPRESSION" + suffix, "Compression");
+    CBlock.changeSliderParameter("VOLUME" + suffix, "Volume");
     CBlock.changeSliderParameter("REVERB" + suffix, "Reverb");
     CBlock.changeSliderParameter("REVERB_DECAY" + suffix, "ReverbDecay");
 

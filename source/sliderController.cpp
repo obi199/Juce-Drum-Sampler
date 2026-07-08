@@ -49,6 +49,7 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     setupLabel(labelReverb);
     setupLabel(labelReverbDecay);
     setupLabel(labelCompression);
+    setupLabel(labelVolume);
 
     addAndMakeVisible(&GainSlider);
     GainSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -108,6 +109,11 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     addAndMakeVisible(&CompressionSlider);
     CompressionSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mCompressionAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "COMPRESSION", CompressionSlider);
+
+    addAndMakeVisible(&VolumeSlider);
+    VolumeSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mVolumeAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "VOLUME", VolumeSlider);
+    VolumeSlider.setTextValueSuffix(" dB");
 }
 
 void controlSlidersBlock::resized() {
@@ -135,14 +141,15 @@ void controlSlidersBlock::resized() {
     placeSlider(CompressionSlider, labelCompression, gap1 * 6 + sWidth*5, row1Y);
     placeSlider(DistortionSlider,  labelDistortion,  gap1 * 7 + sWidth*6, row1Y);
 
-    // Row 2: 6 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Reverb, Decay
-    const auto gap2 = (getWidth() - (sWidth * 6)) / 7;
+    // Row 2: 7 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Reverb, Decay, Vol
+    const auto gap2 = (getWidth() - (sWidth * 7)) / 8;
     placeSlider(LowpassSlider,      labelLowpass,      gap2,                row2Y);
     placeSlider(HighpassSlider,     labelHighpass,     gap2 * 2 + sWidth,   row2Y);
     placeSlider(VelToLowpassSlider, labelVelToLP,      gap2 * 3 + sWidth*2, row2Y);
     placeSlider(VelToAttackSlider,  labelVelToAtk,     gap2 * 4 + sWidth*3, row2Y);
     placeSlider(ReverbSlider,       labelReverb,       gap2 * 5 + sWidth*4, row2Y);
     placeSlider(ReverbDecaySlider,  labelReverbDecay,  gap2 * 6 + sWidth*5, row2Y);
+    placeSlider(VolumeSlider,       labelVolume,       gap2 * 7 + sWidth*6, row2Y);
 }
 
 void controlSlidersBlock::paint(juce::Graphics& /*g*/)
@@ -201,5 +208,9 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
     if (sliderName == "Compression") {
         mCompressionAttachment.reset();
         mCompressionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, CompressionSlider);
+    }
+    if (sliderName == "Volume") {
+        mVolumeAttachment.reset();
+        mVolumeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, VolumeSlider);
     }
 }

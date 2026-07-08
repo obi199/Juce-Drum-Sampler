@@ -708,6 +708,13 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("COMPRESSION" + suffix, 1), "Compression",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("VOLUME" + suffix, 1), 
+            "Volume", 
+            juce::NormalisableRange<float>(-42.0f, 12.0f, 0.1f, 1.5f),
+            0.0f,
+            "dB"
+        ));
     }
 
     return { parameters.begin(), parameters.end() };
@@ -878,6 +885,11 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("COMPRESSION" + suffix))
                     compression = v->load();
                 sound->setCompression(compression);
+
+                float volumeDb = 0.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("VOLUME" + suffix))
+                    volumeDb = v->load();
+                sound->setVolumeLinear(juce::Decibels::decibelsToGain(volumeDb, -60.0f));
 
                 float startOff = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("START_OFFSET" + suffix))
