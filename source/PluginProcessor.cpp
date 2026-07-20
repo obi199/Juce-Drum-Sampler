@@ -469,6 +469,7 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("REVERB",       0.0f);
     setDefault("REVERB_DECAY", 0.5f);
     setDefault("COMPRESSION",  0.0f);
+    setDefault("VOLUME",       -6.0f);
 }
 
 void DrumSamplerAudioProcessor::clearPad(int midiNoteNumber)
@@ -686,7 +687,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
             "Hz"
         ));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_LOWPASS" + suffix, 1), "Vel>LP", 0.0f, 1.0f, 0.0f));
-        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), "Vel>Atk", 0.0f, 1.0f, 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("VEL_TO_ATTACK" + suffix, 1), 
+            "Vel>Atk", 
+            juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f, 2.0f), 
+            0.0f));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("EQ_LOW" + suffix, 1), "EQ Low",
             juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f, "dB"));
@@ -712,7 +717,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
             juce::ParameterID("VOLUME" + suffix, 1), 
             "Volume", 
             juce::NormalisableRange<float>(-42.0f, 12.0f, 0.1f, 1.5f),
-            0.0f,
+            -6.0f,
             "dB"
         ));
     }

@@ -97,7 +97,7 @@ private:
     float reverbDecay = 0.5f;
     float compression = 0.0f;
     float gainLinear = 1.0f;
-    float volumeLinear = 1.0f;
+    float volumeLinear = 0.501187f; // -6.0 dB default
     int outputBusIndex = 0;
     double sourceSampleRate = 44100.0;
     juce::ADSR::Parameters adsrParams;
@@ -117,9 +117,9 @@ public:
         currentSamplePos = 0.0;
         fadeTriggered = false;
         noteVelocity = velocity;
-        // Apply a velocity curve: velocity^0.5 gives a more natural, louder response
-        // at high velocities compared to linear mapping
-        velocityGain = std::pow(velocity, 0.5f);
+        // Apply a velocity curve: velocity^0.75 gives a more sensitive, slightly quieter response
+        // for soft hits compared to the previous square root curve (0.5)
+        velocityGain = std::pow(velocity, 0.75f);
 
         if (auto* sound = dynamic_cast<CustomSamplerSound*>(s))
         {
@@ -178,8 +178,9 @@ public:
             {
                 // Add extra attack for lower velocities. 
                 // At velocity 1.0, extra is 0. 
-                // At velocity 0.0, we add up to 0.5s of attack time.
-                float extraAttack = (1.0f - velocity) * velAmount * 0.5f;
+                // Use a squared curve for smoother modulation and reduce max extra attack to 0.25s.
+                float velFactor = 1.0f - velocity;
+                float extraAttack = velFactor * velFactor * velAmount * 0.25f;
                 params.attack += extraAttack;
             }
             adsr.setParameters(params);
