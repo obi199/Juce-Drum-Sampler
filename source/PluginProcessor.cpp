@@ -466,6 +466,8 @@ void DrumSamplerAudioProcessor::resetPadParametersToDefault(int padIndex)
     setDefault("EQ_MID",       0.0f);
     setDefault("EQ_HIGH",      0.0f);
     setDefault("DISTORTION",   0.0f);
+    setDefault("BIT_DEPTH",    16.0f);
+    setDefault("CRUSH_FREQ",   44100.0f);
     setDefault("REVERB",       0.0f);
     setDefault("REVERB_DECAY", 0.5f);
     setDefault("COMPRESSION",  0.0f);
@@ -668,7 +670,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("DETUNE" + suffix, 1),
             "Detune",
-            juce::NormalisableRange<float>(-24.0f, 24.0f, 0.01f),
+            juce::NormalisableRange<float>(-24.0f, 24.0f, 1.0f),
             0.0f,
             "st"
         ));
@@ -704,6 +706,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout DrumSamplerAudioProcessor::c
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("DISTORTION" + suffix, 1), "Distortion",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("BIT_DEPTH" + suffix, 1), "Bit Depth",
+            juce::NormalisableRange<float>(4.0f, 16.0f, 1.0f), 16.0f, "bits"));
+        parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID("CRUSH_FREQ" + suffix, 1), "Crush Freq",
+            juce::NormalisableRange<float>(500.0f, 44100.0f, 1.0f, 0.3f), 44100.0f, "Hz"));
         parameters.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID("REVERB" + suffix, 1), "Reverb",
             juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f), 0.0f));
@@ -875,6 +883,16 @@ void DrumSamplerAudioProcessor::updateADSR(int padIndex)
                 if (auto* v = mAPVSTATE.getRawParameterValue("DISTORTION" + suffix))
                     distortion = v->load();
                 sound->setDistortionDrive(distortion);
+
+                float bitDepth = 16.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("BIT_DEPTH" + suffix))
+                    bitDepth = v->load();
+                sound->setBitDepth(bitDepth);
+
+                float crushFreq = 44100.0f;
+                if (auto* v = mAPVSTATE.getRawParameterValue("CRUSH_FREQ" + suffix))
+                    crushFreq = v->load();
+                sound->setCrushFreq(crushFreq);
 
                 float reverbMix = 0.0f;
                 if (auto* v = mAPVSTATE.getRawParameterValue("REVERB" + suffix))

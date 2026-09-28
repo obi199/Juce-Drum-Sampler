@@ -46,8 +46,8 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     setupLabel(labelVelToLP);
     setupLabel(labelVelToAtk);
     setupLabel(labelDistortion);
-    setupLabel(labelReverb);
-    setupLabel(labelReverbDecay);
+    setupLabel(labelBits);
+    setupLabel(labelCrushFreq);
     setupLabel(labelCompression);
     setupLabel(labelVolume);
 
@@ -98,13 +98,15 @@ controlSlidersBlock::controlSlidersBlock(DrumSamplerAudioProcessor& p) : audioPr
     DistortionSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
     mDistortionAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "DISTORTION", DistortionSlider);
 
-    addAndMakeVisible(&ReverbSlider);
-    ReverbSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    mReverbAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "REVERB", ReverbSlider);
+    addAndMakeVisible(&BitsSlider);
+    BitsSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mBitsAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "BIT_DEPTH", BitsSlider);
+    BitsSlider.setTextValueSuffix(" bit");
 
-    addAndMakeVisible(&ReverbDecaySlider);
-    ReverbDecaySlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
-    mReverbDecayAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "REVERB_DECAY", ReverbDecaySlider);
+    addAndMakeVisible(&CrushFreqSlider);
+    CrushFreqSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
+    mCrushFreqAttachment = std::make_unique<SliderAttachment>(audioProcessor.getAPVTS(), "CRUSH_FREQ", CrushFreqSlider);
+    CrushFreqSlider.setTextValueSuffix(" Hz");
 
     addAndMakeVisible(&CompressionSlider);
     CompressionSlider.setSliderStyle(juce::Slider::SliderStyle::Rotary);
@@ -141,14 +143,14 @@ void controlSlidersBlock::resized() {
     placeSlider(CompressionSlider, labelCompression, gap1 * 6 + sWidth*5, row1Y);
     placeSlider(DistortionSlider,  labelDistortion,  gap1 * 7 + sWidth*6, row1Y);
 
-    // Row 2: 7 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Reverb, Decay, Vol
+    // Row 2: 7 knobs — Lowpass, Highpass, Vel>LP, Vel>Atk, Bits, Crush (Freq), Vol
     const auto gap2 = (getWidth() - (sWidth * 7)) / 8;
     placeSlider(LowpassSlider,      labelLowpass,      gap2,                row2Y);
     placeSlider(HighpassSlider,     labelHighpass,     gap2 * 2 + sWidth,   row2Y);
     placeSlider(VelToLowpassSlider, labelVelToLP,      gap2 * 3 + sWidth*2, row2Y);
     placeSlider(VelToAttackSlider,  labelVelToAtk,     gap2 * 4 + sWidth*3, row2Y);
-    placeSlider(ReverbSlider,       labelReverb,       gap2 * 5 + sWidth*4, row2Y);
-    placeSlider(ReverbDecaySlider,  labelReverbDecay,  gap2 * 6 + sWidth*5, row2Y);
+    placeSlider(BitsSlider,         labelBits,         gap2 * 5 + sWidth*4, row2Y);
+    placeSlider(CrushFreqSlider,    labelCrushFreq,    gap2 * 6 + sWidth*5, row2Y);
     placeSlider(VolumeSlider,       labelVolume,       gap2 * 7 + sWidth*6, row2Y);
 }
 
@@ -197,13 +199,13 @@ void controlSlidersBlock::changeSliderParameter(const juce::String& parameterID,
         mDistortionAttachment.reset();
         mDistortionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, DistortionSlider);
     }
-    if (sliderName == "Reverb") {
-        mReverbAttachment.reset();
-        mReverbAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, ReverbSlider);
+    if (sliderName == "Bits") {
+        mBitsAttachment.reset();
+        mBitsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, BitsSlider);
     }
-    if (sliderName == "ReverbDecay") {
-        mReverbDecayAttachment.reset();
-        mReverbDecayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, ReverbDecaySlider);
+    if (sliderName == "CrushFreq") {
+        mCrushFreqAttachment.reset();
+        mCrushFreqAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getAPVTS(), parameterID, CrushFreqSlider);
     }
     if (sliderName == "Compression") {
         mCompressionAttachment.reset();

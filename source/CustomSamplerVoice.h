@@ -60,6 +60,12 @@ public:
     void setDistortionDrive(float d) { distortionDrive = juce::jlimit(0.0f, 1.0f, d); }
     float getDistortionDrive() const { return distortionDrive; }
 
+    void setBitDepth(float b) { bitDepth = juce::jlimit(4.0f, 16.0f, b); }
+    float getBitDepth() const { return bitDepth; }
+
+    void setCrushFreq(float f) { crushFreq = juce::jlimit(500.0f, 44100.0f, f); }
+    float getCrushFreq() const { return crushFreq; }
+
     void setReverbMix(float m) { reverbMix = juce::jlimit(0.0f, 1.0f, m); }
     float getReverbMix() const { return reverbMix; }
 
@@ -93,6 +99,8 @@ private:
     float eqMidDb  = 0.0f;
     float eqHighDb = 0.0f;
     float distortionDrive = 0.0f;
+    float bitDepth = 16.0f;
+    float crushFreq = 44100.0f;
     float reverbMix = 0.0f;
     float reverbDecay = 0.5f;
     float compression = 0.0f;
@@ -188,6 +196,9 @@ public:
             adsr.reset();   // ensure envelopeVal starts from 0, not a leftover sustain level
             adsr.noteOn();
             compEnv = 0.0f;
+            downsampleHold[0] = 0.0f;
+            downsampleHold[1] = 0.0f;
+            downsamplePhase = 1.0f;
         }
     }
 
@@ -205,6 +216,9 @@ public:
             fadeTriggered = false;
             reverbTailMode = false;
             reverbTailSamplesLeft = 0;
+            downsampleHold[0] = 0.0f;
+            downsampleHold[1] = 0.0f;
+            downsamplePhase = 1.0f;
         }
     }
 
@@ -292,8 +306,8 @@ public:
             float ratio = 4.0f;
             float knee = 10.0f;
             float makeupDb = compressionAmount * 12.0f;
-            float alphaAttack  = 1.0f - std::exp(-1.0f / (hostRate * 0.005f)); // 5ms
-            float alphaRelease = 1.0f - std::exp(-1.0f / (hostRate * 0.050f)); // 50ms
+            float alphaAttack  = static_cast<float>(1.0 - std::exp(-1.0 / (hostRate * 0.005))); // 5ms
+            float alphaRelease = static_cast<float>(1.0 - std::exp(-1.0 / (hostRate * 0.050))); // 50ms
 
             // Pre-calculate distortion and output parameters
             float drive = playingSound->getDistortionDrive();
@@ -303,6 +317,15 @@ public:
             float padGain = playingSound->getGainLinear();
             float padVolume = playingSound->getVolumeLinear();
             int busOffset = playingSound->getOutputBusIndex() * 2;
+
+            // Pre-calculate vintage bitcrusher & downsampler parameters
+            float bitDepth = playingSound->getBitDepth();
+            float crushFreq = playingSound->getCrushFreq();
+            bool applyDownsampling = (crushFreq < hostRate - 10.0f && crushFreq < 44000.0f);
+            float downsamplePhaseInc = applyDownsampling ? static_cast<float>(crushFreq / hostRate) : 1.0f;
+            bool applyBitcrush = (bitDepth < 15.99f);
+            float bitLevels = std::pow(2.0f, bitDepth);
+            float bitHalfLevels = bitLevels * 0.5f;
 
             bool sampleFinished = false;
             for (int i = 0; i < numSamples; ++i)
@@ -348,6 +371,27 @@ public:
                     s[channel] = sample * inputGain;
                 }
 
+                // Vintage Downsampler (Sample Rate Reduction / Frequency Reduction)
+                if (applyDownsampling)
+                {
+                    downsamplePhase += downsamplePhaseInc;
+                    if (downsamplePhase >= 1.0f)
+                    {
+                        downsamplePhase = std::fmod(downsamplePhase, 1.0f);
+                        downsampleHold[0] = s[0];
+                        downsampleHold[1] = s[1];
+                    }
+                    s[0] = downsampleHold[0];
+                    s[1] = downsampleHold[1];
+                }
+
+                // Vintage Bitcrusher (Bit Depth Reduction / Quantization)
+                if (applyBitcrush)
+                {
+                    s[0] = std::round(s[0] * bitHalfLevels) / bitHalfLevels;
+                    s[1] = std::round(s[1] * bitHalfLevels) / bitHalfLevels;
+                }
+
                 // Compression (Stereo Linked)
                 if (compressionAmount > 0.0f)
                 {
@@ -390,7 +434,6 @@ public:
             float revMix = playingSound->getReverbMix();
             if (revMix > 0.0f)
             {
-                int busOffset = playingSound->getOutputBusIndex() * 2;
                 // Prepare reverb parameters
                 juce::Reverb::Parameters rp;
                 rp.roomSize   = playingSound->getReverbDecay();
@@ -460,6 +503,8 @@ private:
     float velocityGain = 1.0f;
     float noteVelocity = 1.0f;
     float compEnv = 0.0f;
+    float downsampleHold[2] = { 0.0f, 0.0f };
+    float downsamplePhase = 1.0f;
     juce::ADSR adsr;
     juce::IIRFilter lowpassFilters[2];
     juce::IIRFilter highpassFilters[2];

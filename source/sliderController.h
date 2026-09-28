@@ -151,8 +151,8 @@ private:
     sliderController VelToLowpassSlider{ "Vel>LP" };
     sliderController VelToAttackSlider{ "Vel>Atk" };
     sliderController DistortionSlider{ "Dist" };
-    sliderController ReverbSlider{ "Reverb" };
-    sliderController ReverbDecaySlider{ "Decay" };
+    sliderController BitsSlider{ "Bits" };
+    sliderController CrushFreqSlider{ "Freq" };
     sliderController CompressionSlider{ "Comp" };
     sliderController VolumeSlider{ "Vol" };
 
@@ -166,8 +166,8 @@ private:
     std::unique_ptr<SliderAttachment> mVelToLowpassAttachment;
     std::unique_ptr<SliderAttachment> mVelToAttackAttachment;
     std::unique_ptr<SliderAttachment> mDistortionAttachment;
-    std::unique_ptr<SliderAttachment> mReverbAttachment;
-    std::unique_ptr<SliderAttachment> mReverbDecayAttachment;
+    std::unique_ptr<SliderAttachment> mBitsAttachment;
+    std::unique_ptr<SliderAttachment> mCrushFreqAttachment;
     std::unique_ptr<SliderAttachment> mCompressionAttachment;
     std::unique_ptr<SliderAttachment> mVolumeAttachment;
 
@@ -181,8 +181,8 @@ private:
     juce::Label labelVelToLP{ {}, "Vel>LP" };
     juce::Label labelVelToAtk{ {}, "Vel>Atk" };
     juce::Label labelDistortion{ {}, "Dist" };
-    juce::Label labelReverb{ {}, "Reverb" };
-    juce::Label labelReverbDecay{ {}, "Decay" };
+    juce::Label labelBits{ {}, "Bits" };
+    juce::Label labelCrushFreq{ {}, "Freq" };
     juce::Label labelCompression{ {}, "Comp" };
     juce::Label labelVolume{ {}, "Vol" };
 

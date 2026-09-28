@@ -18,10 +18,13 @@ waveFormEditor::waveFormEditor(DrumSamplerAudioProcessor& p)
 {
     Processor.thumbnail.addChangeListener(this);
     setWantsKeyboardFocus(true);
+    startTimer(30);
 }
 
 waveFormEditor::~waveFormEditor()
 {
+    stopTimer();
+    Processor.thumbnail.removeChangeListener(this);
 }
 
 void waveFormEditor::paint(juce::Graphics& g) {
@@ -62,6 +65,12 @@ void waveFormEditor::paintIfFileLoaded(juce::Graphics& g)
     if (auto* v = Processor.getAPVTS().getRawParameterValue("END_OFFSET" + suffix))
         endOffset = v->load();
 
+    float gainDb = 0.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("GAIN" + suffix))
+        gainDb = v->load();
+
+    float gainLinear = juce::Decibels::decibelsToGain(gainDb, -60.0f);
+
     auto bounds = getLocalBounds();
     auto startX = startOffset * (float)bounds.getWidth();
     auto endX   = endOffset   * (float)bounds.getWidth();
@@ -75,7 +84,7 @@ void waveFormEditor::paintIfFileLoaded(juce::Graphics& g)
         bounds,
         0.0,                                   // always draw from the beginning
         audioLength,                           // end time
-        1.0f);                                 // vertical zoom
+        gainLinear);                           // vertical zoom scaled by gain
 }
 
 void waveFormEditor::changeListenerCallback(juce::ChangeBroadcaster* source)
@@ -86,6 +95,36 @@ void waveFormEditor::changeListenerCallback(juce::ChangeBroadcaster* source)
 void waveFormEditor::thumbnailChanged()
 {
     repaint();
+}
+
+void waveFormEditor::timerCallback()
+{
+    int padIndex = Processor.getCurrentPadIndex();
+    auto suffix = (padIndex == 0) ? juce::String("") : juce::String(padIndex + 1);
+
+    float currentGainDb = 0.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("GAIN" + suffix))
+        currentGainDb = v->load();
+
+    float currentStart = 0.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("START_OFFSET" + suffix))
+        currentStart = v->load();
+
+    float currentEnd = 1.0f;
+    if (auto* v = Processor.getAPVTS().getRawParameterValue("END_OFFSET" + suffix))
+        currentEnd = v->load();
+
+    if (std::abs(currentGainDb - lastGainDb) > 0.01f ||
+        std::abs(currentStart - lastStartOffset) > 0.001f ||
+        std::abs(currentEnd - lastEndOffset) > 0.001f ||
+        padIndex != lastPadIndex)
+    {
+        lastGainDb = currentGainDb;
+        lastStartOffset = currentStart;
+        lastEndOffset = currentEnd;
+        lastPadIndex = padIndex;
+        repaint();
+    }
 }
 
 //

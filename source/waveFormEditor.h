@@ -18,7 +18,7 @@
 */
 
 
-class waveFormEditor : public juce::Component, private juce::ChangeListener
+class waveFormEditor : public juce::Component, private juce::ChangeListener, private juce::Timer
 {
 public:
     waveFormEditor(DrumSamplerAudioProcessor&);
@@ -28,11 +28,14 @@ public:
     void paintIfFileLoaded(juce::Graphics&);
     void thumbnailChanged();
     void changeListenerCallback(juce::ChangeBroadcaster*) override;
-    
+    void timerCallback() override;
 
 private: 
     DrumSamplerAudioProcessor& Processor;
-    //float lengthLineX = 10.0f;
+    float lastGainDb = 0.0f;
+    float lastStartOffset = 0.0f;
+    float lastEndOffset = 1.0f;
+    int lastPadIndex = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(waveFormEditor)
 };

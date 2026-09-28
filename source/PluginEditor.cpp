@@ -194,10 +194,10 @@ void DrumSamplerAudioProcessorEditor::switchTopad(int padIndex)
     CBlock.changeSliderParameter("HIGHPASS" + suffix, "Highpass");
     CBlock.changeSliderParameter("VEL_TO_LOWPASS" + suffix, "VelToLowpass");
     CBlock.changeSliderParameter("DISTORTION" + suffix, "Distortion");
+    CBlock.changeSliderParameter("BIT_DEPTH" + suffix, "Bits");
+    CBlock.changeSliderParameter("CRUSH_FREQ" + suffix, "CrushFreq");
     CBlock.changeSliderParameter("COMPRESSION" + suffix, "Compression");
     CBlock.changeSliderParameter("VOLUME" + suffix, "Volume");
-    CBlock.changeSliderParameter("REVERB" + suffix, "Reverb");
-    CBlock.changeSliderParameter("REVERB_DECAY" + suffix, "ReverbDecay");
 
     // Apply the new pad's current parameter values to its sound. SliderAttachment
     // creation syncs the slider FROM the parameter (not the reverse), so
