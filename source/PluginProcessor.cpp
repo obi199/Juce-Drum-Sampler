@@ -208,7 +208,17 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         bool anyActive = false;
         int latestSamplePos = 0;
         int uiMidiNote = (uiPadIndex >= 0 && uiPadIndex < NUM_PADS) ? MIDI_NOTES[uiPadIndex] : -1;
-        
+
+        // Keep parameters (gain, EQ, filters, etc.) in sync for every pad that is
+        // currently sounding. Relying solely on the ValueTree-change notification
+        // (mUpdateCount/valueTreePropertyChanged) is not enough: APVTS only syncs
+        // parameter values to its ValueTree periodically, so a knob turned while a
+        // note is sustaining — or right before the next hit — could otherwise be
+        // applied one or more triggers late. Since updateADSR() always reads the
+        // live raw parameter values, refreshing it every block for active pads
+        // guarantees changes are heard immediately.
+        bool padUpdated[NUM_PADS] = { false };
+
         for (int i = 0; i < mSampler.getNumVoices(); ++i)
         {
             if (auto* v = dynamic_cast<CustomSamplerVoice*>(mSampler.getVoice(i)))
@@ -219,6 +229,13 @@ void DrumSamplerAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
                     // Only track position for the UI-selected pad's voice
                     if (v->getCurrentlyPlayingNote() == uiMidiNote)
                         latestSamplePos = v->getNextSamplePos();
+
+                    int activePadIdx = getPadIndexFromMidiNote(v->getCurrentlyPlayingNote());
+                    if (activePadIdx >= 0 && activePadIdx < NUM_PADS && !padUpdated[activePadIdx])
+                    {
+                        updateADSR(activePadIdx);
+                        padUpdated[activePadIdx] = true;
+                    }
                 }
             }
         }
